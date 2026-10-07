@@ -1,0 +1,97 @@
+---
+# roles/prerequisites/tasks/catalog_source.yml
+# Ensure the IBM Operator Catalog CatalogSource exists and is READY.
+#
+# Reference: https://www.ibm.com/docs/en/cloud-paks/rhos/1.0.0?topic=clusters-adding-operator-catalog
+#
+# A single CatalogSource is required:
+#   name : ibm-operator-catalog
+#   image: icr.io/cpopen/ibm-operator-catalog:latest
+#
+# The Fusion operator version is selected via the Subscription channel (e.g. v2.12),
+# NOT via a separate catalog image.
+
+- name: "[catalog] Get OCP cluster version"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+  register: _ocp_clusterversion
+
+- name: "[catalog] Store OCP version fact"
+  ansible.builtin.set_fact:
+    _ocp_version: >-
+      {{
+        _ocp_clusterversion.resources[0].status.desired.version
+        if _ocp_clusterversion.resources | length > 0
+        else 'unknown'
+      }}
+
+- name: "[catalog] Display version plan"
+  ansible.builtin.debug:
+    msg:
+      - "OCP version : {{ _ocp_version }}"
+      - "OLM channel : {{ fusion_operator_channel }}"
+
+# ---- Check if ibm-operator-catalog already exists ----
+- name: "[catalog] Check if ibm-operator-catalog already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    name: "{{ ibm_operator_catalog_name }}"
+    namespace: "{{ ibm_operator_catalog_namespace }}"
+  register: _existing_catalog
+
+- name: "[catalog] ibm-operator-catalog already present — skipping creation"
+  ansible.builtin.debug:
+    msg: >
+      CatalogSource '{{ ibm_operator_catalog_name }}' already exists
+      (state: {{ _existing_catalog.resources[0].status.connectionState.lastObservedState | default('unknown') }}).
+      Skipping creation.
+  when: _existing_catalog.resources | length > 0
+
+# ---- Create ibm-operator-catalog only if absent ----
+- name: "[catalog] Create ibm-operator-catalog CatalogSource"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'catalog_source.j2') | from_yaml }}"
+  when: _existing_catalog.resources | length == 0
+
+# ---- Wait for READY ----
+- name: "[catalog] Wait for ibm-operator-catalog to become READY"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    name: "{{ ibm_operator_catalog_name }}"
+    namespace: "{{ ibm_operator_catalog_namespace }}"
+  register: _cs_status
+  until: >
+    _cs_status.resources | length > 0 and
+    _cs_status.resources[0].status is defined and
+    _cs_status.resources[0].status.connectionState is defined and
+    _cs_status.resources[0].status.connectionState.lastObservedState == 'READY'
+  retries: "{{ (catalog_source_wait_seconds / operator_poll_interval_seconds) | int }}"
+  delay: "{{ operator_poll_interval_seconds }}"
+
+- name: "[catalog] CatalogSource status"
+  ansible.builtin.debug:
+    msg:
+      - "CatalogSource : {{ ibm_operator_catalog_name }}"
+      - "State         : {{ _cs_status.resources[0].status.connectionState.lastObservedState }}"
+      - "Image         : {{ _cs_status.resources[0].spec.image }}"

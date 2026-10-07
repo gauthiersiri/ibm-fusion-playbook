@@ -1,0 +1,33 @@
+---
+# roles/fusion_operator/defaults/main.yml
+# Default variables for the fusion_operator role.
+# Override in group_vars or with -e if needed.
+
+# Deployments to verify after operator install.
+# The 8 controller-managers come from spec.install.spec.deployments in
+# the CSV. fusion-console, isf-proxy and isf-ui-dep are created by the
+# operator itself ~30s later as part of the same install wave.
+# Operand deployments (fusionmanager-controller, callhomeclient,
+# eventmanager, logcollector, ibm-usage-metering-instance) appear only
+# after licence acceptance and are NOT in this list.
+fusion_operator_deployments:
+  - isf-platform-operator-controller-manager
+  - isf-prereq-operator-controller-manager
+  - isf-data-protection-operator-controller-manager
+  - isf-cns-operator-controller-manager
+  - isf-update-operator-controller-manager
+  - isf-ui-operator-controller-manager
+  - isf-serviceability-operator-controller-manager
+  - isf-application-operator-controller-manager
+  - fusion-console
+  - isf-proxy
+  - isf-ui-dep
+
+# Deployments created after SpectrumFusion CR / licence acceptance.
+# Verified on 2.14.0 — appear ~25 min after the operator deployments.
+fusion_licence_deployments:
+  - fusionmanager-controller
+  - callhomeclient
+  - eventmanager
+  - logcollector
+  - ibm-usage-metering-instance

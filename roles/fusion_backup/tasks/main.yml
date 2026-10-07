@@ -1,0 +1,10 @@
+---
+# roles/fusion_backup/tasks/main.yml
+
+- name: Create FusionServiceInstance for Backup & Restore
+  ansible.builtin.import_tasks: fsi.yml
+  tags: backup_fsi
+
+- name: Wait for Backup & Restore service to complete
+  ansible.builtin.import_tasks: wait.yml
+  tags: backup_wait

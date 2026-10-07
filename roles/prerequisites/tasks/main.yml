@@ -1,0 +1,18 @@
+---
+# roles/prerequisites/tasks/main.yml
+# Entry point — orchestrates all prerequisite tasks.
+# NOTE: authentication (_k8s_auth) is handled by the 'auth' role
+#       which runs before this role in site.yml.
+
+- name: Configure IBM Entitlement pull secret
+  ansible.builtin.import_tasks: pull_secret.yml
+  tags: pull_secret
+  when: ocp_entitlement_key | length > 0
+
+- name: Configure IBM Operator Catalog source
+  ansible.builtin.import_tasks: catalog_source.yml
+  tags: catalog_source
+
+- name: Verify prerequisites
+  ansible.builtin.import_tasks: verify.yml
+  tags: verify

@@ -1,0 +1,115 @@
+---
+# roles/fusion_operator/tasks/subscription.yml
+# Create the OperatorGroup and Subscription for IBM Fusion.
+#
+# Reference: https://www.ibm.com/docs/en/fusion-software/2.14.0?topic=fusion-deploying-using-cli
+#
+# Key values from IBM documentation:
+#   OperatorGroup name  : isf-og
+#   Subscription name   : isf-operator
+#   spec.name           : isf-operator      ← operator package name in catalog
+#   source              : ibm-operator-catalog
+#   namespace           : ibm-spectrum-fusion-ns
+#   installPlanApproval : Manual (IBM strongly recommends Manual)
+
+- name: "[fusion/sub] Create OperatorGroup ({{ fusion_operatorgroup_name }}) in {{ fusion_namespace }}"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'operator_group.j2') | from_yaml }}"
+
+- name: "[fusion/sub] Create Subscription ({{ fusion_subscription_name }}) in {{ fusion_namespace }}"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'subscription.j2') | from_yaml }}"
+
+- name: "[fusion/sub] Subscription created"
+  ansible.builtin.debug:
+    msg:
+      - "Subscription : {{ fusion_subscription_name }}"
+      - "Operator     : {{ fusion_operator_name }}"
+      - "Channel      : {{ fusion_operator_channel }}"
+      - "Source       : {{ ibm_operator_catalog_name }}"
+      - "Approval     : {{ fusion_approval_strategy }}"
+
+# ---- Manual InstallPlan approval ----
+- name: "[fusion/sub] Handle InstallPlan approval (Manual strategy)"
+  when: fusion_approval_strategy == "Manual"
+  block:
+    # Wait until OLM has created at least one InstallPlan owned by our subscription.
+    # We check ownerReferences.name == fusion_subscription_name so we never
+    # accidentally touch InstallPlans from other operators in the same namespace.
+    # Covers both first run (approved=false) and idempotent reruns (approved=true).
+    - name: "[fusion/sub] Wait for isf-operator InstallPlan to exist"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_auth.host }}"
+        api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+        kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+        validate_certs: "{{ _k8s_auth.validate_certs }}"
+        api_version: operators.coreos.com/v1alpha1
+        kind: InstallPlan
+        namespace: "{{ fusion_namespace }}"
+      register: _install_plans_raw
+      until: >-
+        _install_plans_raw.resources
+        | selectattr('metadata.ownerReferences', 'defined')
+        | selectattr('metadata.ownerReferences', 'search', fusion_subscription_name)
+        | list | length > 0
+      retries: 20
+      delay: 15
+
+    # Keep only InstallPlans whose ownerReferences point to our subscription.
+    # ownerReferences is a list — we stringify it and do a substring search,
+    # which is safe because fusion_subscription_name ("isf-operator") is unique.
+    - name: "[fusion/sub] Collect all isf-operator InstallPlans"
+      ansible.builtin.set_fact:
+        _isf_installplans: >-
+          {{
+            _install_plans_raw.resources
+            | selectattr('metadata.ownerReferences', 'defined')
+            | selectattr('metadata.ownerReferences', 'search', fusion_subscription_name)
+            | list
+          }}
+
+    - name: "[fusion/sub] Collect pending (unapproved) isf-operator InstallPlans"
+      ansible.builtin.set_fact:
+        _pending_installplans: >-
+          {{
+            _isf_installplans
+            | selectattr('spec.approved', 'equalto', false)
+            | list
+          }}
+
+    - name: "[fusion/sub] Already approved — nothing to do"
+      ansible.builtin.debug:
+        msg: >-
+          InstallPlan(s) {{ _isf_installplans | map(attribute='metadata.name') | list }}
+          already approved. Skipping.
+      when: _pending_installplans | length == 0
+
+    - name: "[fusion/sub] Approve pending InstallPlan(s)"
+      kubernetes.core.k8s:
+        host: "{{ _k8s_auth.host }}"
+        api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+        kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+        validate_certs: "{{ _k8s_auth.validate_certs }}"
+        state: present
+        definition:
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: InstallPlan
+          metadata:
+            name: "{{ item.metadata.name }}"
+            namespace: "{{ fusion_namespace }}"
+          spec:
+            approved: true
+      loop: "{{ _pending_installplans }}"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+      when: _pending_installplans | length > 0

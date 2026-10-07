@@ -1,0 +1,30 @@
+---
+# roles/fusion_backup/tasks/wait.yml
+# Poll FusionServiceInstance until progressPercentage reaches 100.
+
+- name: "[backup/wait] Wait for Backup & Restore FusionServiceInstance to reach 100%"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: service.isf.ibm.com/v1
+    kind: FusionServiceInstance
+    name: "{{ backup_fsi_name }}"
+    namespace: "{{ fusion_namespace }}"
+  register: _backup_fsi_status
+  until: >-
+    _backup_fsi_status.resources | length > 0
+    and (_backup_fsi_status.resources[0].status | default({})).installStatus is defined
+    and (_backup_fsi_status.resources[0].status.installStatus.progressPercentage | default(0)) | int == 100
+  retries: "{{ (backup_wait_seconds | int / backup_poll_interval_seconds | int) | int }}"
+  delay: "{{ backup_poll_interval_seconds | int }}"
+
+- name: "[backup/wait] Backup & Restore installed successfully"
+  ansible.builtin.debug:
+    msg:
+      - "=== IBM Fusion Backup & Restore ==="
+      - "FusionServiceInstance : {{ backup_fsi_name }}"
+      - "Progress              : {{ _backup_fsi_status.resources[0].status.installStatus.progressPercentage }}%"
+      - "B&R namespace         : {{ backup_namespace }}"
+      - "storageClass          : {{ backup_storage_class }}"

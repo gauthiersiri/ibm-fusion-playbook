@@ -1,0 +1,18 @@
+---
+# roles/fusion_operator/tasks/main.yml
+
+- name: Create Fusion namespace
+  ansible.builtin.import_tasks: namespace.yml
+  tags: namespace
+
+- name: Install Fusion OperatorGroup and Subscription
+  ansible.builtin.import_tasks: subscription.yml
+  tags: subscription
+
+- name: Wait for Fusion operator to be ready
+  ansible.builtin.import_tasks: wait.yml
+  tags: wait
+
+- name: Accept IBM Fusion licence (SpectrumFusion CR)
+  ansible.builtin.import_tasks: license.yml
+  tags: license

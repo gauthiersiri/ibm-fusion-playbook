@@ -1,0 +1,88 @@
+---
+# roles/fusion_data_foundation/tasks/local_volumes.yml
+# Create LocalVolumeDiscovery and LocalVolumeSet for ODF local storage.
+#
+# References:
+#   https://openshift.blog/docs/openshift/ops/storage/odf-deploy-cli/
+#   https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/storage/persistent-storage-using-local-storage
+#
+# Strategy:
+#   - LocalVolumeDiscovery: auto-discover all devices on nodes labeled
+#     cluster.ocs.openshift.io/openshift-storage
+#   - LocalVolumeSet: select only 500G (490-510Gi) non-rotational block
+#     devices — excludes the 50G disks (vdb/vdc/vdd) and the OS disk (vda)
+#     maxDeviceCount: 1 → one 500G disk per node (vde)
+
+# ------------------------------------------------------------------ #
+# LocalVolumeDiscovery                                                 #
+# ------------------------------------------------------------------ #
+- name: "[odf/lvs] Create LocalVolumeDiscovery"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'local_volume_discovery.j2') | from_yaml }}"
+
+- name: "[odf/lvs] Wait for LocalVolumeDiscoveryResults to appear (one per node)"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: local.storage.openshift.io/v1alpha1
+    kind: LocalVolumeDiscoveryResult
+    namespace: "{{ lso_namespace }}"
+  register: _lvdr
+  until: _lvdr.resources | length >= _odf_storage_nodes | length
+  retries: "{{ (odf_wait_seconds / odf_poll_interval_seconds) | int }}"
+  delay: "{{ odf_poll_interval_seconds }}"
+
+- name: "[odf/lvs] Discovery complete — devices found per node"
+  ansible.builtin.debug:
+    msg: >-
+      {{
+        _lvdr.resources
+        | map(attribute='spec.nodeName')
+        | zip(_lvdr.resources
+              | map(attribute='status.discoveredDevices', default=[])
+              | map('length'))
+        | map('join', ' → ')
+        | map('regex_replace', '$', ' device(s)')
+        | list
+      }}
+
+# ------------------------------------------------------------------ #
+# LocalVolumeSet                                                       #
+# ------------------------------------------------------------------ #
+- name: "[odf/lvs] Create LocalVolumeSet ({{ odf_disk_min_size | default('any') }} disks)"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'local_volume_set.j2') | from_yaml }}"
+
+- name: "[odf/lvs] Wait for PersistentVolumes to be created by LSO"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: v1
+    kind: PersistentVolume
+    label_selectors:
+      - "storage.openshift.com/owner-name={{ odf_lvs_name }}"
+  register: _pvs
+  until: _pvs.resources | length >= _odf_storage_nodes | length
+  retries: "{{ (odf_wait_seconds / odf_poll_interval_seconds) | int }}"
+  delay: "{{ odf_poll_interval_seconds }}"
+
+- name: "[odf/lvs] PersistentVolumes ready"
+  ansible.builtin.debug:
+    msg:
+      - "StorageClass : {{ odf_storage_class }}"
+      - "PVs created  : {{ _pvs.resources | length }}"
+      - "PV names     : {{ _pvs.resources | map(attribute='metadata.name') | list }}"

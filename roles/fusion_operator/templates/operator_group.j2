@@ -1,0 +1,9 @@
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: "{{ fusion_operatorgroup_name }}"
+  namespace: "{{ fusion_namespace }}"
+spec:
+  targetNamespaces:
+    - "{{ fusion_namespace }}"
+  upgradeStrategy: Default

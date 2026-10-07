@@ -1,0 +1,45 @@
+---
+# roles/fusion_backup/tasks/fsi.yml
+# Create the FusionServiceInstance for Backup & Restore.
+#
+# Reference: https://www.ibm.com/docs/en/fusion-software/2.11.0?topic=restore-backup-service-installation-upgrade-issues
+#
+# Prerequisites:
+#   - IBM Fusion operator installed and licensed (fusion_operator role)
+#   - ODF StorageCluster Ready (fusion_data_foundation role)
+#   - A dynamic RWO StorageClass available (backup_storage_class)
+
+- name: "[backup/fsi] Check if FusionServiceInstance {{ backup_fsi_name }} already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: service.isf.ibm.com/v1
+    kind: FusionServiceInstance
+    name: "{{ backup_fsi_name }}"
+    namespace: "{{ fusion_namespace }}"
+  register: _backup_fsi_check
+
+- name: "[backup/fsi] FusionServiceInstance already exists — skipping"
+  ansible.builtin.debug:
+    msg: "FusionServiceInstance '{{ backup_fsi_name }}' already exists. Skipping."
+  when: _backup_fsi_check.resources | length > 0
+
+- name: "[backup/fsi] Create FusionServiceInstance (Backup & Restore)"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'fsi_backup.j2') | from_yaml }}"
+  when: _backup_fsi_check.resources | length == 0
+
+- name: "[backup/fsi] FusionServiceInstance submitted"
+  ansible.builtin.debug:
+    msg:
+      - "FusionServiceInstance : {{ backup_fsi_name }}"
+      - "serviceDefinition     : {{ backup_service_definition }}"
+      - "B&R namespace         : {{ backup_namespace }}"
+      - "storageClass          : {{ backup_storage_class }}"

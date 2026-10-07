@@ -1,0 +1,22 @@
+apiVersion: service.isf.ibm.com/v1
+kind: FusionServiceInstance
+metadata:
+  name: "{{ backup_fsi_name }}"
+  namespace: "{{ fusion_namespace }}"
+spec:
+  serviceDefinition: "{{ backup_service_definition }}"
+  triggerUpdate: false
+  doInstall: true
+  parameters:
+    - name: namespace
+      provided: false
+      value: "{{ backup_namespace }}"
+    - name: doInstall
+      provided: false
+      value: "true"
+    - name: storageClass
+      provided: true
+      value: "{{ backup_storage_class }}"
+    - name: autoUpgrade
+      provided: false
+      value: "true"

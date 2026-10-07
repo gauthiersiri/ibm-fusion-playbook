@@ -1,0 +1,41 @@
+---
+# roles/fusion_data_foundation/tasks/fsi.yml
+# Create the FusionServiceInstance for Data Foundation (Local mode).
+#
+# Reference: https://www.ibm.com/docs/en/fusion-software/2.12.x?topic=services-deploying-fusion-using-cli
+# backingStorageType: Local — uses LSO + local block devices.
+# Valid values: Local | Dynamic | External (capitalise first letter).
+
+- name: "[odf/fsi] Check if FusionServiceInstance {{ odf_fsi_name }} already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: service.isf.ibm.com/v1
+    kind: FusionServiceInstance
+    name: "{{ odf_fsi_name }}"
+    namespace: "{{ fusion_namespace }}"
+  register: _fsi_check
+
+- name: "[odf/fsi] FusionServiceInstance already exists — skipping creation"
+  ansible.builtin.debug:
+    msg: "FusionServiceInstance '{{ odf_fsi_name }}' already exists. Skipping."
+  when: _fsi_check.resources | length > 0
+
+- name: "[odf/fsi] Create FusionServiceInstance (Data Foundation — Local)"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'fsi_data_foundation.j2') | from_yaml }}"
+  when: _fsi_check.resources | length == 0
+
+- name: "[odf/fsi] FusionServiceInstance submitted"
+  ansible.builtin.debug:
+    msg:
+      - "FusionServiceInstance : {{ odf_fsi_name }}"
+      - "backingStorageType    : Local"
+      - "ODF namespace         : {{ odf_namespace }}"

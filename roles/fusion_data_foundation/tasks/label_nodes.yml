@@ -1,0 +1,38 @@
+---
+# roles/fusion_data_foundation/tasks/label_nodes.yml
+# Apply the ODF storage label to the designated infra nodes.
+# Idempotent: kubernetes.core.k8s merges labels.
+
+- name: "[odf/label] Apply ODF label to storage nodes"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: v1
+    kind: Node
+    name: "{{ item }}"
+    definition:
+      metadata:
+        labels: "{{ { odf_node_label_key: odf_node_label_value } }}"
+  loop: "{{ _odf_storage_nodes }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: "[odf/label] Verify label applied"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: v1
+    kind: Node
+    label_selectors:
+      - "{{ odf_node_label_key }}"
+  register: _labeled_nodes
+
+- name: "[odf/label] Storage nodes labeled"
+  ansible.builtin.debug:
+    msg: >-
+      ODF label applied to:
+      {{ _labeled_nodes.resources | map(attribute='metadata.name') | list }}

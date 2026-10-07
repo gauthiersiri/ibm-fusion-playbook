@@ -1,0 +1,11 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: "{{ fusion_subscription_name }}"
+  namespace: "{{ fusion_namespace }}"
+spec:
+  channel: "{{ fusion_operator_channel }}"
+  installPlanApproval: "{{ fusion_approval_strategy }}"
+  name: "{{ fusion_operator_name }}"
+  source: "{{ ibm_operator_catalog_name }}"
+  sourceNamespace: "{{ ibm_operator_catalog_namespace }}"

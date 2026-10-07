@@ -1,0 +1,117 @@
+---
+# roles/auth/tasks/main.yml
+# Authenticate to OpenShift and produce _k8s_auth for all subsequent roles.
+#
+# Two auth strategies are supported:
+#   A) username / password  → oc login → Bearer token → api_key
+#   B) kubeconfig           → detect if it contains a token or a client cert
+#                             - if token   → api_key
+#                             - if cert    → pass kubeconfig: directly
+#
+# Produces:
+#   _k8s_auth        : dict spread into every kubernetes.core task
+#                      { host, api_key, validate_certs }
+#                   OR { host, kubeconfig, validate_certs }
+#   _ocp_auth_source : human-readable string (for display)
+
+# ------------------------------------------------------------------ #
+# A) Username / password                                               #
+# ------------------------------------------------------------------ #
+- name: "[auth] Login with username/password"
+  when: ocp_username | length > 0 and ocp_password | length > 0
+  block:
+    - name: "[auth] oc login"
+      ansible.builtin.command:
+        argv: >-
+          {{
+            ['oc', 'login', ocp_api_url,
+             '--username=' ~ ocp_username,
+             '--password=' ~ ocp_password]
+            + (['--insecure-skip-tls-verify'] if not ocp_validate_certs else [])
+          }}
+      changed_when: false
+      no_log: true
+
+    - name: "[auth] Retrieve Bearer token"
+      ansible.builtin.command: oc whoami --show-token
+      register: _whoami
+      changed_when: false
+      no_log: true
+
+    - name: "[auth] Store auth facts (token)"
+      ansible.builtin.set_fact:
+        _k8s_auth:
+          host: "{{ ocp_api_url }}"
+          api_key: "{{ _whoami.stdout | trim }}"
+          validate_certs: "{{ ocp_validate_certs }}"
+        _ocp_auth_source: "username/password (Bearer token)"
+      no_log: true
+
+# ------------------------------------------------------------------ #
+# B) kubeconfig                                                        #
+# ------------------------------------------------------------------ #
+- name: "[auth] Use kubeconfig file"
+  when: ocp_kubeconfig | length > 0 and ocp_username | length == 0
+  block:
+    - name: "[auth] Verify kubeconfig exists"
+      ansible.builtin.stat:
+        path: "{{ ocp_kubeconfig }}"
+      register: _kc_stat
+
+    - name: "[auth] Fail if kubeconfig not found"
+      ansible.builtin.fail:
+        msg: "kubeconfig file not found: {{ ocp_kubeconfig }}"
+      when: not _kc_stat.stat.exists
+
+    # Try to extract a token — works when auth-provider or exec-based token is present
+    - name: "[auth] Try to extract Bearer token from kubeconfig"
+      ansible.builtin.command:
+        argv:
+          - oc
+          - whoami
+          - --show-token
+          - "--kubeconfig={{ ocp_kubeconfig }}"
+      register: _whoami_kc
+      changed_when: false
+      failed_when: false   # cert-based kubeconfigs will return rc != 0
+      no_log: true
+
+    # If a token was found → use api_key (same path as user/password)
+    - name: "[auth] Store auth facts (kubeconfig token)"
+      ansible.builtin.set_fact:
+        _k8s_auth:
+          host: "{{ ocp_api_url }}"
+          api_key: "{{ _whoami_kc.stdout | trim }}"
+          validate_certs: "{{ ocp_validate_certs }}"
+        _ocp_auth_source: "kubeconfig (Bearer token)"
+      when: _whoami_kc.rc == 0 and _whoami_kc.stdout | trim | length > 0
+      no_log: true
+
+    # If no token (client cert auth) → pass kubeconfig path directly
+    - name: "[auth] Store auth facts (kubeconfig client-cert)"
+      ansible.builtin.set_fact:
+        _k8s_auth:
+          host: "{{ ocp_api_url }}"
+          kubeconfig: "{{ ocp_kubeconfig }}"
+          validate_certs: "{{ ocp_validate_certs }}"
+        _ocp_auth_source: "kubeconfig (client certificate)"
+      when: _whoami_kc.rc != 0 or _whoami_kc.stdout | trim | length == 0
+
+# ------------------------------------------------------------------ #
+# Connectivity check                                                   #
+# ------------------------------------------------------------------ #
+- name: "[auth] Confirm cluster connectivity"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: default
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+  register: _cluster_check
+  failed_when: _cluster_check.resources | length == 0
+
+- name: "[auth] Display cluster info"
+  ansible.builtin.debug:
+    msg: "✔ Connected to {{ ocp_api_url }} via {{ _ocp_auth_source }}"

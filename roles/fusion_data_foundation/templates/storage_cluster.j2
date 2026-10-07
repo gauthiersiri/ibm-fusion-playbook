@@ -1,0 +1,23 @@
+apiVersion: ocs.openshift.io/v1
+kind: StorageCluster
+metadata:
+  name: "{{ odf_storage_cluster_name }}"
+  namespace: "{{ odf_namespace }}"
+spec:
+  monDataDirHostPath: /var/lib/rook
+  resourceProfile: "{{ odf_resource_profile }}"
+  storageDeviceSets:
+    - name: "{{ odf_device_set_name }}"
+      count: 1
+      portable: false
+      replica: 3
+      dataPVCTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          volumeMode: Block
+          storageClassName: "{{ odf_storage_class }}"
+          resources:
+            requests:
+              # Use "1" — ODF selects PVs by storageClass, not by size.
+              storage: "1"

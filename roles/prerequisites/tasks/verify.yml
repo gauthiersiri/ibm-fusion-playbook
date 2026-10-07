@@ -1,0 +1,74 @@
+---
+# roles/prerequisites/tasks/verify.yml
+# Final checks that all prerequisites are satisfied before proceeding.
+
+- name: "[verify] Check cluster version"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+  register: _cluster_version
+
+- name: "[verify] Display cluster version"
+  ansible.builtin.debug:
+    msg: >
+      Cluster version: {{
+        _cluster_version.resources[0].status.desired.version
+        if _cluster_version.resources | length > 0
+        else 'unknown'
+      }}
+
+- name: "[verify] Check OperatorHub is enabled"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: config.openshift.io/v1
+    kind: OperatorHub
+    name: cluster
+  register: _operatorhub
+
+- name: "[verify] Fail if OperatorHub is fully disabled"
+  ansible.builtin.fail:
+    msg: "OperatorHub is disabled on this cluster. Enable it before running this playbook."
+  when:
+    - _operatorhub.resources | length > 0
+    - _operatorhub.resources[0].spec is defined
+    - _operatorhub.resources[0].spec.disableAllDefaultSources is defined
+    - _operatorhub.resources[0].spec.disableAllDefaultSources | bool
+
+- name: "[verify] Verify cp.icr.io is in global pull secret"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: v1
+    kind: Secret
+    name: pull-secret
+    namespace: openshift-config
+  register: _ps_check
+
+- name: "[verify] Warn if cp.icr.io is missing from global pull secret"
+  ansible.builtin.debug:
+    msg: >
+      WARNING: cp.icr.io not found in openshift-config/pull-secret.
+      Run with ocp_entitlement_key set to add it automatically.
+  when: >
+    _ps_check.resources | length == 0
+    or 'cp.icr.io' not in (
+      (_ps_check.resources[0].data['.dockerconfigjson'] | b64decode | from_json).get('auths', {})
+    )
+
+- name: "[verify] Summary"
+  ansible.builtin.debug:
+    msg:
+      - "=== Prerequisites verification complete ==="
+      - "Cluster              : {{ ocp_api_url }}"
+      - "OCP version          : {{ _ocp_version | default('unknown') }}"
+      - "IBM Operator Catalog : {{ ibm_operator_catalog_name }}"

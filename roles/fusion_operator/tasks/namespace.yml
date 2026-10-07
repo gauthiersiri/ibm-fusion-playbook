@@ -1,0 +1,16 @@
+---
+# roles/fusion_operator/tasks/namespace.yml
+# Create the Fusion namespace with required labels.
+
+- name: "[fusion/ns] Create namespace {{ fusion_namespace }}"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'namespace.j2') | from_yaml }}"
+
+- name: "[fusion/ns] Namespace {{ fusion_namespace }} ready"
+  ansible.builtin.debug:
+    msg: "Namespace {{ fusion_namespace }} is present."

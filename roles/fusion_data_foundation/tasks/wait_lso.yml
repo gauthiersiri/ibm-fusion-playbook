@@ -1,0 +1,69 @@
+---
+# roles/fusion_data_foundation/tasks/wait_lso.yml
+# Wait for the Local Storage Operator CSV to reach Succeeded.
+# The FusionServiceInstance triggers LSO installation automatically.
+
+- name: "[odf/lso] Wait for openshift-local-storage namespace to exist"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: v1
+    kind: Namespace
+    name: "{{ lso_namespace }}"
+  register: _lso_ns
+  until: _lso_ns.resources | length > 0
+  retries: "{{ (odf_wait_seconds / odf_poll_interval_seconds) | int }}"
+  delay: "{{ odf_poll_interval_seconds }}"
+
+- name: "[odf/lso] Wait for local-storage-operator CSV to appear"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ lso_namespace }}"
+  register: _lso_csv_list
+  until: >
+    _lso_csv_list.resources
+    | selectattr('metadata.name', 'match', 'local-storage-operator.*')
+    | list | length > 0
+  retries: "{{ (odf_wait_seconds / odf_poll_interval_seconds) | int }}"
+  delay: "{{ odf_poll_interval_seconds }}"
+
+- name: "[odf/lso] Store LSO CSV name"
+  ansible.builtin.set_fact:
+    _lso_csv_name: >-
+      {{
+        (_lso_csv_list.resources
+          | selectattr('metadata.name', 'match', 'local-storage-operator.*')
+          | list | first).metadata.name
+      }}
+
+- name: "[odf/lso] Wait for LSO CSV {{ _lso_csv_name }} to reach Succeeded"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ _lso_csv_name }}"
+    namespace: "{{ lso_namespace }}"
+  register: _lso_csv
+  until: >
+    _lso_csv.resources | length > 0 and
+    _lso_csv.resources[0].status.phase is defined and
+    _lso_csv.resources[0].status.phase == 'Succeeded'
+  retries: "{{ (odf_wait_seconds / odf_poll_interval_seconds) | int }}"
+  delay: "{{ odf_poll_interval_seconds }}"
+
+- name: "[odf/lso] Local Storage Operator ready"
+  ansible.builtin.debug:
+    msg:
+      - "LSO CSV   : {{ _lso_csv_name }}"
+      - "Phase     : {{ _lso_csv.resources[0].status.phase }}"
+      - "Namespace : {{ lso_namespace }}"

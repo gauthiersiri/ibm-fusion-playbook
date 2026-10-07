@@ -1,0 +1,26 @@
+apiVersion: service.isf.ibm.com/v1
+kind: FusionServiceInstance
+metadata:
+  name: "{{ odf_fsi_name }}"
+  namespace: "{{ fusion_namespace }}"
+spec:
+  creator: User
+  doInstall: true
+  serviceDefinition: data-foundation-service
+  triggerUpdate: false
+  parameters:
+    - name: namespace
+      provided: false
+      value: "{{ odf_namespace }}"
+    - name: creator
+      provided: false
+      value: Fusion
+    - name: backingStorageType
+      provided: true
+      value: Local
+    - name: autoUpgrade
+      provided: false
+      value: "true"
+    - name: enableLVMStorage
+      provided: true
+      value: "false"

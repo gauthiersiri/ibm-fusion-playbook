@@ -1,0 +1,86 @@
+---
+# roles/fusion_operator/tasks/license.yml
+# Apply the SpectrumFusion CR to accept the IBM Fusion licence.
+#
+# Reference: https://www.ibm.com/docs/en/fusion-software/2.14.0?topic=fusion-deploying-using-cli
+#
+# This CR is mandatory — without it the operator is running but no
+# FusionServiceDefinitions are created and no services can be deployed.
+# After the CR is applied, the operator creates a second wave of deployments
+# (fusionmanager-controller, callhomeclient, eventmanager, logcollector,
+# ibm-usage-metering-instance). We wait for all of them to be ready.
+
+- name: "[fusion/license] Apply SpectrumFusion CR (accept licence)"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'spectrum_fusion.j2') | from_yaml }}"
+
+- name: "[fusion/license] Wait for SpectrumFusion CR to be acknowledged"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: prereq.isf.ibm.com/v1
+    kind: SpectrumFusion
+    name: spectrumfusion
+    namespace: "{{ fusion_namespace }}"
+  register: _sf_cr
+  until: _sf_cr.resources | length > 0
+  retries: 12
+  delay: 10
+
+- name: "[fusion/license] Wait for FusionServiceDefinitions to appear"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: service.isf.ibm.com/v1
+    kind: FusionServiceDefinition
+    namespace: "{{ fusion_namespace }}"
+  register: _svc_defs
+  until: _svc_defs.resources | length > 0
+  retries: 20
+  delay: 15
+
+- name: "[fusion/license] FusionServiceDefinitions available"
+  ansible.builtin.debug:
+    msg:
+      - "=== IBM Fusion licence accepted ==="
+      - "SpectrumFusion : spectrumfusion ({{ fusion_namespace }})"
+      - "ServiceDefinitions available:"
+      - "{{ _svc_defs.resources | map(attribute='metadata.name') | list }}"
+
+# ------------------------------------------------------------------ #
+# Post-licence deployment health check                                 #
+# ------------------------------------------------------------------ #
+- name: "[fusion/license] Wait for post-licence deployment {{ item }} to be ready"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ item }}"
+    namespace: "{{ fusion_namespace }}"
+  register: _dep_status
+  until: >
+    _dep_status.resources | length > 0
+    and _dep_status.resources[0].status.readyReplicas is defined
+    and _dep_status.resources[0].status.readyReplicas
+        == _dep_status.resources[0].spec.replicas
+  retries: "{{ (operator_install_wait_seconds / operator_poll_interval_seconds) | int }}"
+  delay: "{{ operator_poll_interval_seconds }}"
+  loop: "{{ fusion_licence_deployments }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: "[fusion/license] All post-licence deployments ready"
+  ansible.builtin.debug:
+    msg: "All {{ fusion_licence_deployments | length }} post-licence deployments are ready."

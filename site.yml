@@ -1,0 +1,64 @@
+---
+# ============================================================
+# IBM Spectrum Fusion — OpenShift Configuration Playbook
+# ============================================================
+# Usage examples:
+#
+#   # With user/password:
+#   ansible-playbook site.yml \
+#     -e ocp_api_url=https://api.cluster.example.com:6443 \
+#     -e ocp_username=kubeadmin \
+#     -e ocp_password=secret \
+#     -e @secrets.yml
+#
+#   # With kubeconfig:
+#   ansible-playbook site.yml \
+#     -e ocp_api_url=https://api.cluster.example.com:6443 \
+#     -e ocp_kubeconfig=/path/to/kubeconfig \
+#     -e @secrets.yml
+#
+#   # Only prerequisites:
+#   ansible-playbook site.yml ... --tags prerequisites
+#
+#   # Only install the operator (auth always runs):
+#   ansible-playbook site.yml ... --tags fusion_operator
+#
+#   # Only Backup & Restore:
+#   ansible-playbook site.yml ... --tags fusion_backup
+# ============================================================
+
+- name: Configure OpenShift cluster for IBM Spectrum Fusion
+  hosts: openshift_clusters
+  gather_facts: false
+  connection: local   # all tasks run on the Ansible controller via k8s modules
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ocp_api_url | length > 0
+          - (ocp_username | length > 0 and ocp_password | length > 0)
+            or ocp_kubeconfig | length > 0
+        fail_msg: >
+          You must provide either (ocp_username + ocp_password) or ocp_kubeconfig,
+          and ocp_api_url must be set.
+        success_msg: "Input validation passed."
+      tags: always
+
+  roles:
+    # auth MUST run first and unconditionally — it produces _k8s_auth
+    # used by every subsequent role.
+    - role: roles/auth
+      tags: always
+
+    - role: roles/prerequisites
+      tags: prerequisites
+
+    - role: roles/fusion_operator
+      tags: fusion_operator
+
+    - role: roles/fusion_data_foundation
+      tags: fusion_data_foundation
+
+    - role: roles/fusion_backup
+      tags: fusion_backup

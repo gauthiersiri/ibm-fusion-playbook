@@ -1,0 +1,50 @@
+---
+# ============================================================
+# OpenShift cluster — default variables
+# Override in inventory/hosts.yml or pass with -e on CLI
+# ============================================================
+
+# --- Authentication ---
+ocp_api_url: ""          # https://api.<cluster>.<domain>:6443
+ocp_username: ""         # leave empty when using kubeconfig
+ocp_password: ""         # leave empty when using kubeconfig
+ocp_kubeconfig: ""       # leave empty when using user/password
+ocp_validate_certs: true
+
+# --- IBM Entitlement ---
+# Ref: https://www.ibm.com/docs/en/fusion-software/2.14.0?topic=prerequisites-creating-image-pull-secret
+# The key is merged into the global pull secret: openshift-config/pull-secret
+ocp_entitlement_key: "" # IBM entitlement key from https://myibm.ibm.com/products-services/containerlibrary
+
+
+# --- OLM channel ---
+# IBM Fusion uses a single channel for the entire 2.x generation: v2.0
+# It only changes when IBM releases a new major version.
+# Ref: https://www.ibm.com/docs/en/fusion-hci-systems/2.7.x (channel: v2.0)
+fusion_operator_channel: "v2.0"
+
+# ============================================================
+# Catalog Sources
+# ============================================================
+# Single IBM Operator Catalog — ref: https://www.ibm.com/docs/en/cloud-paks/rhos/1.0.0
+ibm_operator_catalog_name: "ibm-operator-catalog"
+ibm_operator_catalog_image: "icr.io/cpopen/ibm-operator-catalog:latest"
+ibm_operator_catalog_namespace: "openshift-marketplace"
+
+# ============================================================
+# Fusion Operator
+# Ref: https://www.ibm.com/docs/en/fusion-software/2.11.0?topic=fusion-deploying-using-cli
+# ============================================================
+fusion_namespace: "ibm-spectrum-fusion-ns"
+fusion_operatorgroup_name: "isf-og"       # doc: metadata.name = isf-og
+fusion_operator_name: "isf-operator"      # doc: spec.name = isf-operator
+fusion_operator_csv_prefix: "isf-operator"
+fusion_subscription_name: "isf-operator"  # doc: metadata.name = isf-operator
+fusion_approval_strategy: "Manual"        # doc: IBM recommends Manual — never Automatic
+
+# ============================================================
+# Timing
+# ============================================================
+catalog_source_wait_seconds: 120
+operator_install_wait_seconds: 300
+operator_poll_interval_seconds: 15

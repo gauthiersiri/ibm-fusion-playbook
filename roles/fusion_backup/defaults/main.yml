@@ -1,0 +1,19 @@
+---
+# roles/fusion_backup/defaults/main.yml
+
+# FusionServiceInstance name for Backup & Restore
+backup_fsi_name: "ibm-backup-restore-service-instance"
+
+# serviceDefinition name (from FusionServiceDefinition CR)
+backup_service_definition: "ibm-backup-restore-service"
+
+# Namespace where B&R service is installed (max 24 chars)
+backup_namespace: "ibm-backup-restore"
+
+# StorageClass used by the B&R service (must be RWO dynamic provisioner)
+# Default: ODF Ceph RBD — override in host_vars if needed
+backup_storage_class: "ocs-storagecluster-ceph-rbd"
+
+# Timing
+backup_wait_seconds: 1200     # B&R install can take ~15-20 min
+backup_poll_interval_seconds: 30

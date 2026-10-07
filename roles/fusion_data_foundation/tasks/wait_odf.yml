@@ -1,0 +1,34 @@
+---
+# roles/fusion_data_foundation/tasks/wait_odf.yml
+# Poll FusionServiceInstance until progressPercentage reaches 100.
+# IBM docs: oc get FusionServiceInstance odfmanager -o json -n ibm-spectrum-fusion-ns
+
+- name: "[odf/wait] Wait for ODF FusionServiceInstance to reach 100%"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: service.isf.ibm.com/v1
+    kind: FusionServiceInstance
+    name: "{{ odf_fsi_name }}"
+    namespace: "{{ fusion_namespace }}"
+  register: _fsi_status
+  until: >
+    _fsi_status.resources | length > 0
+    and _fsi_status.resources[0].status is defined
+    and _fsi_status.resources[0].status.installStatus is defined
+    and _fsi_status.resources[0].status.installStatus.progressPercentage is defined
+    and _fsi_status.resources[0].status.installStatus.progressPercentage | int == 100
+  retries: "{{ (odf_wait_seconds / odf_poll_interval_seconds) | int }}"
+  delay: "{{ odf_poll_interval_seconds }}"
+
+- name: "[odf/wait] Data Foundation installed successfully"
+  ansible.builtin.debug:
+    msg:
+      - "=== IBM Fusion Data Foundation ==="
+      - "FusionServiceInstance : {{ odf_fsi_name }}"
+      - "Progress              : {{ _fsi_status.resources[0].status.installStatus.progressPercentage }}%"
+      - "Status                : {{ _fsi_status.resources[0].status.installStatus.installStatus | default('n/a') }}"
+      - "ODF namespace         : {{ odf_namespace }}"
+      - "StorageClass          : {{ odf_storage_class }}"

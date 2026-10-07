@@ -1,0 +1,96 @@
+---
+# roles/fusion_operator/tasks/wait.yml
+# 1. Poll until the Fusion CSV reaches Succeeded phase.
+# 2. Verify each deployment in fusion_operator_deployments is ready.
+#
+# Deployment list is in roles/fusion_operator/defaults/main.yml.
+# It covers the 8 CSV controller-managers + fusion-console, isf-proxy,
+# isf-ui-dep (created ~30s later by the operator itself).
+# Operand deployments that appear after licence acceptance are excluded.
+
+# ------------------------------------------------------------------ #
+# CSV check                                                            #
+# ------------------------------------------------------------------ #
+- name: "[fusion/wait] Wait for isf-operator CSV to appear"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ fusion_namespace }}"
+  register: _csv_list
+  until: >
+    _csv_list.resources
+    | selectattr('metadata.name', 'match', fusion_operator_csv_prefix ~ '.*')
+    | list | length > 0
+  retries: "{{ (operator_install_wait_seconds / operator_poll_interval_seconds) | int }}"
+  delay: "{{ operator_poll_interval_seconds }}"
+
+- name: "[fusion/wait] Store CSV name"
+  ansible.builtin.set_fact:
+    _fusion_csv_name: >-
+      {{
+        (_csv_list.resources
+          | selectattr('metadata.name', 'match', fusion_operator_csv_prefix ~ '.*')
+          | list
+          | first).metadata.name
+      }}
+
+- name: "[fusion/wait] Wait for CSV {{ _fusion_csv_name }} to reach Succeeded"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ _fusion_csv_name }}"
+    namespace: "{{ fusion_namespace }}"
+  register: _csv_status
+  until: >
+    _csv_status.resources | length > 0 and
+    _csv_status.resources[0].status is defined and
+    _csv_status.resources[0].status.phase is defined and
+    _csv_status.resources[0].status.phase == 'Succeeded'
+  retries: "{{ (operator_install_wait_seconds / operator_poll_interval_seconds) | int }}"
+  delay: "{{ operator_poll_interval_seconds }}"
+
+- name: "[fusion/wait] CSV Succeeded"
+  ansible.builtin.debug:
+    msg:
+      - "=== IBM Spectrum Fusion Operator ==="
+      - "CSV     : {{ _fusion_csv_name }}"
+      - "Phase   : {{ _csv_status.resources[0].status.phase }}"
+      - "Version : {{ _csv_status.resources[0].spec.version | default('n/a') }}"
+      - "Namespace: {{ fusion_namespace }}"
+
+# ------------------------------------------------------------------ #
+# Deployment health check                                              #
+# ------------------------------------------------------------------ #
+- name: "[fusion/wait] Check deployment {{ item }} is ready"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ item }}"
+    namespace: "{{ fusion_namespace }}"
+  register: _dep_status
+  until: >
+    _dep_status.resources | length > 0
+    and _dep_status.resources[0].status.readyReplicas is defined
+    and _dep_status.resources[0].status.readyReplicas
+        == _dep_status.resources[0].spec.replicas
+  retries: "{{ (operator_install_wait_seconds / operator_poll_interval_seconds) | int }}"
+  delay: "{{ operator_poll_interval_seconds }}"
+  loop: "{{ fusion_operator_deployments }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: "[fusion/wait] All operator deployments ready"
+  ansible.builtin.debug:
+    msg: "All {{ fusion_operator_deployments | length }} operator deployments are ready."

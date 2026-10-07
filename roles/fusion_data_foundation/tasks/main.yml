@@ -1,0 +1,34 @@
+---
+# roles/fusion_data_foundation/tasks/main.yml
+
+- name: Resolve ODF storage nodes (explicit list or auto-detect)
+  ansible.builtin.import_tasks: discover_nodes.yml
+  tags: always
+
+- name: Label ODF storage nodes
+  ansible.builtin.import_tasks: label_nodes.yml
+  tags: odf_label
+
+- name: Create FusionServiceInstance for Data Foundation
+  ansible.builtin.import_tasks: fsi.yml
+  tags: odf_fsi
+
+- name: Wait for Local Storage Operator to be ready
+  ansible.builtin.import_tasks: wait_lso.yml
+  tags: odf_lso
+
+- name: Create LocalVolumeDiscovery and LocalVolumeSet
+  ansible.builtin.import_tasks: local_volumes.yml
+  tags: odf_lvs
+
+- name: Wait for Data Foundation to complete
+  ansible.builtin.import_tasks: wait_odf.yml
+  tags: odf_wait
+
+- name: Create StorageCluster (Ceph)
+  ansible.builtin.import_tasks: storage_cluster.yml
+  tags: odf_storage_cluster
+
+- name: Wait for StorageCluster to be Ready
+  ansible.builtin.import_tasks: wait_storage_cluster.yml
+  tags: odf_storage_cluster

@@ -1,0 +1,52 @@
+---
+# roles/openshift_virtualization/tasks/subscription.yml
+# Create the openshift-cnv Namespace, OperatorGroup, and Subscription.
+# ref: OCP 4.21 docs — Subscribing to the OpenShift Virtualization catalog via CLI
+
+- name: "[cnv/sub] Create openshift-cnv Namespace"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'namespace.j2') | from_yaml }}"
+
+- name: "[cnv/sub] Create OperatorGroup"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'operatorgroup.j2') | from_yaml }}"
+
+- name: "[cnv/sub] Check if Subscription already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ cnv_subscription_name }}"
+    namespace: "{{ cnv_namespace }}"
+  register: _cnv_sub_check
+
+- name: "[cnv/sub] Create Subscription"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'subscription.j2') | from_yaml }}"
+  when: _cnv_sub_check.resources | length == 0
+
+- name: "[cnv/sub] Subscription submitted"
+  ansible.builtin.debug:
+    msg:
+      - "Subscription : {{ cnv_subscription_name }}"
+      - "Channel      : {{ cnv_channel }}"
+      - "Source       : {{ cnv_source }}"
+      - "Namespace    : {{ cnv_namespace }}"

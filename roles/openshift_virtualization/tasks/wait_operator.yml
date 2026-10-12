@@ -1,0 +1,29 @@
+---
+# roles/openshift_virtualization/tasks/wait_operator.yml
+# Wait for the kubevirt-hyperconverged CSV to reach the Succeeded phase.
+
+- name: "[cnv/wait] Wait for OpenShift Virtualization CSV to be Succeeded"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ cnv_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/kubevirt-hyperconverged.{{ cnv_namespace }}"
+  register: _cnv_csv
+  until: >-
+    _cnv_csv.resources | length > 0
+    and (_cnv_csv.resources | selectattr('status.phase', 'defined')
+         | selectattr('status.phase', 'equalto', 'Succeeded') | list | length) > 0
+  retries: "{{ (cnv_wait_seconds / cnv_poll_interval_seconds) | int }}"
+  delay: "{{ cnv_poll_interval_seconds }}"
+
+- name: "[cnv/wait] OpenShift Virtualization operator ready"
+  ansible.builtin.debug:
+    msg:
+      - "CSV     : {{ _cnv_csv.resources[0].metadata.name }}"
+      - "Phase   : {{ _cnv_csv.resources[0].status.phase }}"
+      - "Version : {{ _cnv_csv.resources[0].spec.version | default('n/a') }}"

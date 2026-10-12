@@ -1,0 +1,57 @@
+---
+# roles/openshift_virtualization/tasks/hyperconverged.yml
+# Create the HyperConverged CR that deploys all OpenShift Virtualization components.
+# ref: production CR (ITZ cluster, OCP 4.21)
+
+- name: "[cnv/hco] Check if HyperConverged CR already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: hco.kubevirt.io/v1beta1
+    kind: HyperConverged
+    name: "{{ cnv_hyperconverged_name }}"
+    namespace: "{{ cnv_namespace }}"
+  register: _hco_check
+
+- name: "[cnv/hco] HyperConverged CR already exists — skipping"
+  ansible.builtin.debug:
+    msg: "HyperConverged '{{ cnv_hyperconverged_name }}' already exists. Skipping."
+  when: _hco_check.resources | length > 0
+
+- name: "[cnv/hco] Create HyperConverged CR"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'hyperconverged.j2') | from_yaml }}"
+  when: _hco_check.resources | length == 0
+
+- name: "[cnv/hco] Wait for HyperConverged to reach Available condition"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: hco.kubevirt.io/v1beta1
+    kind: HyperConverged
+    name: "{{ cnv_hyperconverged_name }}"
+    namespace: "{{ cnv_namespace }}"
+  register: _hco_status
+  until: >-
+    _hco_status.resources | length > 0
+    and (_hco_status.resources[0].status.conditions | default([])
+         | selectattr('type', 'equalto', 'Available')
+         | selectattr('status', 'equalto', 'True') | list | length) > 0
+  retries: "{{ (cnv_wait_seconds / cnv_poll_interval_seconds) | int }}"
+  delay: "{{ cnv_poll_interval_seconds }}"
+
+- name: "[cnv/hco] HyperConverged is Available"
+  ansible.builtin.debug:
+    msg:
+      - "HyperConverged : {{ cnv_hyperconverged_name }}"
+      - "Namespace      : {{ cnv_namespace }}"
+      - "vmStateStorageClass : {{ cnv_vm_state_storage_class }}"

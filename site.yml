@@ -64,5 +64,8 @@
     - role: roles/fusion_data_foundation
       tags: fusion_data_foundation
 
+    - role: roles/openshift_virtualization
+      tags: openshift_virtualization
+
     - role: roles/fusion_backup
       tags: fusion_backup

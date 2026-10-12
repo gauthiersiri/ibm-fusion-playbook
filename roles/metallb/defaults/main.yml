@@ -1,0 +1,34 @@
+---
+# roles/metallb/defaults/main.yml
+
+# Namespace for the MetalLB operator and its CRs
+# ref: OCP docs — "install in the metallb-system namespace"
+metallb_namespace: "metallb-system"
+
+# OLM Subscription settings
+# ref: OCP 4.21 docs, Installing the MetalLB Operator via CLI
+metallb_subscription_name: "metallb-operator-sub"
+metallb_channel: "stable"
+metallb_source: "redhat-operators"
+metallb_source_namespace: "openshift-marketplace"
+
+# MetalLB instance CR name (must be "metallb", only one allowed per cluster)
+metallb_instance_name: "metallb"
+
+# IPAddressPool settings
+# spec.addresses: list of IP ranges MetalLB can assign to LoadBalancer services.
+# Must be routable IPs on the bare-metal network, not assigned to any other device.
+# Format: "x.x.x.x-x.x.x.x" or CIDR "x.x.x.x/yy"
+# ref: production CR (ITZ cluster): 10.10.10.200-10.10.10.250
+metallb_pool_name: "odf-provider-pool"
+metallb_pool_addresses:
+  - "10.10.10.200-10.10.10.250"
+metallb_pool_auto_assign: true
+metallb_pool_avoid_buggy_ips: false
+
+# L2Advertisement name — ties the IPAddressPool to L2 ARP announcements
+metallb_l2adv_name: "odf-provider-l2adv"
+
+# Timing
+metallb_wait_seconds: 300
+metallb_poll_interval_seconds: 15

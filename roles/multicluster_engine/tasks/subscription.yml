@@ -1,0 +1,52 @@
+---
+# roles/multicluster_engine/tasks/subscription.yml
+# Create the multicluster-engine Namespace, OperatorGroup, and Subscription.
+# ref: Red Hat docs — Installing from the OpenShift Container Platform CLI
+
+- name: "[mce/sub] Create multicluster-engine Namespace"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'namespace.j2') | from_yaml }}"
+
+- name: "[mce/sub] Create OperatorGroup"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'operatorgroup.j2') | from_yaml }}"
+
+- name: "[mce/sub] Check if Subscription already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ mce_subscription_name }}"
+    namespace: "{{ mce_namespace }}"
+  register: _mce_sub_check
+
+- name: "[mce/sub] Create Subscription"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'subscription.j2') | from_yaml }}"
+  when: _mce_sub_check.resources | length == 0
+
+- name: "[mce/sub] Subscription submitted"
+  ansible.builtin.debug:
+    msg:
+      - "Subscription : {{ mce_subscription_name }}"
+      - "Channel      : {{ mce_channel }}"
+      - "Source       : {{ mce_source }}"
+      - "Namespace    : {{ mce_namespace }}"

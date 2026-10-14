@@ -1,0 +1,26 @@
+---
+# roles/multicluster_engine/defaults/main.yml
+
+# Namespace — recommended to use "multicluster-engine"
+# ref: Red Hat docs: "Best practice: Continue to use the multicluster-engine namespace if available."
+mce_namespace: "multicluster-engine"
+
+# OLM Subscription settings
+# IMPORTANT: channel is versioned (stable-2.x) and must match the OCP version.
+# MCE version / OCP compatibility matrix:
+#   MCE 2.7  → OCP 4.20
+#   MCE 2.8  → OCP 4.21
+#   MCE 2.9  → OCP 4.22
+# ref: https://docs.redhat.com/en/documentation/openshift_container_platform/4.21/html/hosted_control_planes
+# There is NO generic "stable" channel — mce_channel MUST be set explicitly.
+mce_subscription_name: "multicluster-engine"
+mce_channel: "stable-2.8"        # override to match your OCP version
+mce_source: "redhat-operators"
+mce_source_namespace: "openshift-marketplace"
+
+# MultiClusterEngine CR name — must be "multiclusterengine" (only one allowed per cluster)
+mce_instance_name: "multiclusterengine"
+
+# Timing — MCE can take 10+ minutes to reach Available
+mce_wait_seconds: 900
+mce_poll_interval_seconds: 30

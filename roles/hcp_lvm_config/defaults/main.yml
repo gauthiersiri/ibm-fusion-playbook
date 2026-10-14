@@ -34,3 +34,9 @@ hcp_lvm_node_type: "compute"
 
 # skipLVM: set to "true" to skip LVMCluster creation
 hcp_lvm_skip: "false"
+
+# StorageClass created by Fusion once LVMCluster is ready
+# Used to validate that LVM was successfully configured
+hcp_lvm_storageclass_name: "lvms-hcp-etcd"
+hcp_lvm_wait_seconds: 300
+hcp_lvm_poll_interval_seconds: 15

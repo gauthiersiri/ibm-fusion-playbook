@@ -56,3 +56,25 @@
       - "drives      : {{ hcp_lvm_drives }}"
       - "computeNodes: {{ hcp_lvm_compute_nodes }}"
   tags: hcp_lvm_config
+
+- name: "[hcp_lvm] Wait for StorageClass '{{ hcp_lvm_storageclass_name }}' to exist"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+    name: "{{ hcp_lvm_storageclass_name }}"
+  register: _lvm_sc
+  until: _lvm_sc.resources | length > 0
+  retries: "{{ (hcp_lvm_wait_seconds / hcp_lvm_poll_interval_seconds) | int }}"
+  delay: "{{ hcp_lvm_poll_interval_seconds }}"
+  when: hcp_lvm_skip | string != 'true'
+  tags: hcp_lvm_config
+
+- name: "[hcp_lvm] LVM StorageClass ready"
+  ansible.builtin.debug:
+    msg: "StorageClass '{{ hcp_lvm_storageclass_name }}' is available — LVM configured successfully."
+  when: hcp_lvm_skip | string != 'true'
+  tags: hcp_lvm_config

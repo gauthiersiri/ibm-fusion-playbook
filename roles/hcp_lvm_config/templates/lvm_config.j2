@@ -1,0 +1,16 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: "{{ hcp_lvm_configmap_name }}"
+  namespace: "{{ hcp_lvm_namespace }}"
+data:
+  nodeType: "{{ hcp_lvm_node_type }}"
+  skipLVM: "{{ hcp_lvm_skip }}"
+  computeNodes: |
+{% for node in hcp_lvm_compute_nodes %}
+    - '{{ node }}'
+{% endfor %}
+  drives: |
+{% for drive in hcp_lvm_drives %}
+    - '{{ drive }}'
+{% endfor %}

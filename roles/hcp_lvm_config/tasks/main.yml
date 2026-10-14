@@ -1,0 +1,58 @@
+---
+# roles/hcp_lvm_config/tasks/main.yml
+# ref: IBM Fusion docs — Prerequisites for Hosted Control Plane clusters
+# "Create a configmap similar to the following example. This configmap is used
+#  by IBM Fusion to create a LVM cluster."
+#
+# Must run BEFORE the Fusion Data Foundation service is installed.
+
+- name: "[hcp_lvm] Validate required variables"
+  ansible.builtin.assert:
+    that:
+      - hcp_lvm_compute_nodes | length >= 3
+      - hcp_lvm_drives | length >= 1
+    fail_msg: >
+      hcp_lvm_compute_nodes must contain at least 3 nodes
+      and hcp_lvm_drives must contain at least 1 drive path.
+  tags: hcp_lvm_config
+
+- name: "[hcp_lvm] Check if lvm-config ConfigMap already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ hcp_lvm_configmap_name }}"
+    namespace: "{{ hcp_lvm_namespace }}"
+  register: _lvm_cm_check
+  tags: hcp_lvm_config
+
+- name: "[hcp_lvm] lvm-config ConfigMap already exists — skipping"
+  ansible.builtin.debug:
+    msg: "ConfigMap '{{ hcp_lvm_configmap_name }}' already exists in {{ hcp_lvm_namespace }}. Skipping."
+  when: _lvm_cm_check.resources | length > 0
+  tags: hcp_lvm_config
+
+- name: "[hcp_lvm] Create lvm-config ConfigMap"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'lvm_config.j2') | from_yaml }}"
+  when: _lvm_cm_check.resources | length == 0
+  tags: hcp_lvm_config
+
+- name: "[hcp_lvm] Summary"
+  ansible.builtin.debug:
+    msg:
+      - "ConfigMap   : {{ hcp_lvm_configmap_name }}"
+      - "Namespace   : {{ hcp_lvm_namespace }}"
+      - "nodeType    : {{ hcp_lvm_node_type }}"
+      - "skipLVM     : {{ hcp_lvm_skip }}"
+      - "drives      : {{ hcp_lvm_drives }}"
+      - "computeNodes: {{ hcp_lvm_compute_nodes }}"
+  tags: hcp_lvm_config

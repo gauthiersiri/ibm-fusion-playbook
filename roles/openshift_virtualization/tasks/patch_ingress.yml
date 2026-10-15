@@ -42,7 +42,7 @@
     kind: IngressController
     name: default
     namespace: openshift-ingress-operator
-    merge_patch: true
+    merge_type: merge
     definition:
       spec:
         routeAdmission:

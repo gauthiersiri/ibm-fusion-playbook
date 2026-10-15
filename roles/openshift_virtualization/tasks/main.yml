@@ -11,6 +11,10 @@
   ansible.builtin.import_tasks: wait_operator.yml
   tags: cnv_subscription
 
+- name: Patch IngressController — enable wildcard routes (required for virtualized HCP)
+  ansible.builtin.import_tasks: patch_ingress.yml
+  tags: cnv_ingress_patch
+
 - name: Create HyperConverged CR
   ansible.builtin.import_tasks: hyperconverged.yml
   tags: cnv_hyperconverged

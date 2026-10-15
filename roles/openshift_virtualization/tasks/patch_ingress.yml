@@ -1,0 +1,52 @@
+---
+# roles/openshift_virtualization/tasks/patch_ingress.yml
+# Patch the default IngressController to allow wildcard routes.
+#
+# Required for virtualized Hosted Control Plane clusters — hosted cluster
+# ingress routes use wildcard DNS entries that OCP rejects by default.
+#
+# ref: IBM Fusion Software 2.12 — Prerequisites for Hosted Control Plane clusters, step 5
+# "This requirement is only for virtualized Hosted Control Plane clusters."
+#
+# Equivalent CLI:
+#   oc patch ingresscontroller -n openshift-ingress-operator default \
+#     --type=json -p '[{"op":"add","path":"/spec/routeAdmission",
+#                       "value":{"wildcardPolicy":"WildcardsAllowed"}}]'
+
+- name: "[cnv/ingress] Read current IngressController spec"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operator.openshift.io/v1
+    kind: IngressController
+    name: default
+    namespace: openshift-ingress-operator
+  register: _ingress_ctrl
+
+- name: "[cnv/ingress] Wildcard routes already enabled — skipping"
+  ansible.builtin.debug:
+    msg: "IngressController default already has wildcardPolicy: WildcardsAllowed."
+  when: >-
+    (_ingress_ctrl.resources[0].spec.routeAdmission | default({})).wildcardPolicy
+    | default('') == 'WildcardsAllowed'
+
+- name: "[cnv/ingress] Patch IngressController — enable wildcard routes"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operator.openshift.io/v1
+    kind: IngressController
+    name: default
+    namespace: openshift-ingress-operator
+    merge_patch: true
+    definition:
+      spec:
+        routeAdmission:
+          wildcardPolicy: WildcardsAllowed
+  when: >-
+    (_ingress_ctrl.resources[0].spec.routeAdmission | default({})).wildcardPolicy
+    | default('') != 'WildcardsAllowed'

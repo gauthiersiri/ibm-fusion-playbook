@@ -10,7 +10,7 @@
 
 - name: Resolve ODF storage nodes (explicit list or auto-detect)
   ansible.builtin.import_tasks: discover_nodes.yml
-  tags: always
+  tags: fusion_data_foundation
 
 - name: Label ODF storage nodes
   ansible.builtin.import_tasks: label_nodes.yml

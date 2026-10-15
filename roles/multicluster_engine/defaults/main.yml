@@ -22,16 +22,18 @@ mce_source_namespace: "openshift-marketplace"
 mce_channel: ""
 
 # OCP minor version → MCE channel mapping.
-# ref: https://docs.redhat.com/en/documentation/multicluster_engine_for_kubernetes
+# Source of truth: oc get packagemanifest multicluster-engine -o jsonpath='{.status.channels[*].name}'
+# olm.maxOpenShiftVersion on each channel tells which OCP versions it supports.
+# Pick the highest stable-2.x whose maxOpenShiftVersion >= your OCP version.
 # Add a new entry here whenever Red Hat releases a new MCE version.
 mce_channel_map:
-  "4.16": "stable-2.5"
-  "4.17": "stable-2.6"
-  "4.18": "stable-2.7"
-  "4.19": "stable-2.7"
-  "4.20": "stable-2.7"
-  "4.21": "stable-2.8"
-  "4.22": "stable-2.9"
+  "4.16": "stable-2.10"
+  "4.17": "stable-2.10"
+  "4.18": "stable-2.10"
+  "4.19": "stable-2.10"
+  "4.20": "stable-2.10"
+  "4.21": "stable-2.10"
+  "4.22": "stable-2.11"
 
 # MultiClusterEngine CR name — must be "multiclusterengine" (only one allowed per cluster)
 mce_instance_name: "multiclusterengine"

@@ -14,9 +14,24 @@ mce_namespace: "multicluster-engine"
 # ref: https://docs.redhat.com/en/documentation/openshift_container_platform/4.21/html/hosted_control_planes
 # There is NO generic "stable" channel — mce_channel MUST be set explicitly.
 mce_subscription_name: "multicluster-engine"
-mce_channel: "stable-2.8"        # override to match your OCP version
 mce_source: "redhat-operators"
 mce_source_namespace: "openshift-marketplace"
+
+# mce_channel: leave empty to auto-detect from OCP version via mce_channel_map.
+# Set explicitly to pin a specific channel and skip auto-detection.
+mce_channel: ""
+
+# OCP minor version → MCE channel mapping.
+# ref: https://docs.redhat.com/en/documentation/multicluster_engine_for_kubernetes
+# Add a new entry here whenever Red Hat releases a new MCE version.
+mce_channel_map:
+  "4.16": "stable-2.5"
+  "4.17": "stable-2.6"
+  "4.18": "stable-2.7"
+  "4.19": "stable-2.7"
+  "4.20": "stable-2.7"
+  "4.21": "stable-2.8"
+  "4.22": "stable-2.9"
 
 # MultiClusterEngine CR name — must be "multiclusterengine" (only one allowed per cluster)
 mce_instance_name: "multiclusterengine"

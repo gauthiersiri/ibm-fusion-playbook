@@ -3,6 +3,29 @@
 # Create the multicluster-engine Namespace, OperatorGroup, and Subscription.
 # ref: Red Hat docs — Installing from the OpenShift Container Platform CLI
 
+- name: "[mce/sub] Read OCP version from ClusterVersion"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+  register: _ocp_clusterversion
+  when: mce_channel | length == 0
+
+- name: "[mce/sub] Derive mce_channel from OCP version"
+  ansible.builtin.set_fact:
+    mce_channel: >-
+      {{
+        mce_channel_map[
+          _ocp_clusterversion.resources[0].status.desired.version
+          | regex_replace('^(\d+\.\d+)\..*$', '\1')
+        ] | default('stable-2.8')
+      }}
+  when: mce_channel | length == 0
+
 - name: "[mce/sub] Create multicluster-engine Namespace"
   kubernetes.core.k8s:
     host: "{{ _k8s_auth.host }}"

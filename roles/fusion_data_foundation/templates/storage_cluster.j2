@@ -8,10 +8,6 @@ metadata:
 spec:
   monDataDirHostPath: /var/lib/rook
   resourceProfile: "{{ odf_resource_profile }}"
-  # flexibleScaling + replica:1 is universal across all deployment modes.
-  # ODF uses failureDomain:host (node-spread) for data protection.
-  # Observed on all reference CRs (ODF 4.20 provider, ODF 4.21 hostNetwork, ODF 4.21 local).
-  flexibleScaling: true
   arbiter: {}
   externalStorage: {}
   encryption:
@@ -38,12 +34,11 @@ spec:
 {% endif %}
   storageDeviceSets:
     - name: "{{ odf_device_set_name }}"
+      # count:1 + replica:3 = 3 OSDs — matches reference ITZ CR (ODF 4.21.12).
+      # replica:3 satisfies osd_pool_default_size:3 for pool creation.
       count: 1
+      replica: 3
       portable: false
-      # replica:1 — universal across all modes (local and provider).
-      # Redundancy via node spread (failureDomain:host) + flexibleScaling.
-      # Observed on all reference CRs.
-      replica: 1
       dataPVCTemplate:
         spec:
           accessModes:

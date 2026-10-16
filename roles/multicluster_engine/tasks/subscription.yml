@@ -15,14 +15,54 @@
   register: _ocp_clusterversion
   when: mce_channel | length == 0
 
-- name: "[mce/sub] Derive mce_channel from OCP version"
+- name: "[mce/sub] Read multicluster-engine PackageManifest"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: multicluster-engine
+    namespace: openshift-marketplace
+  register: _mce_packagemanifest
+  when: mce_channel | length == 0
+
+# Build a flat list of {name, max_ocp} from PackageManifest channels.
+# olm.properties is a JSON string: '[{"type":"olm.maxOpenShiftVersion","value":"4.21"}]'
+# We extract the value for each stable-2.x channel then pick the highest
+# whose maxOpenShiftVersion >= the cluster OCP minor version.
+- name: "[mce/sub] Build channel compatibility list"
+  ansible.builtin.set_fact:
+    _mce_channel_candidates: >-
+      {{
+        _mce_channel_candidates | default([])
+        + [{
+            'name': item.name,
+            'minor': item.name | regex_replace('^stable-2\.(\d+)$', '\1') | int,
+            'max_ocp': item.currentCSVDesc.annotations['olm.properties']
+                       | from_json
+                       | selectattr('type', 'equalto', 'olm.maxOpenShiftVersion')
+                       | map(attribute='value') | first | default('99.0')
+          }]
+      }}
+  loop: "{{ _mce_packagemanifest.resources[0].status.channels
+            | selectattr('name', 'match', '^stable-2\\.\\d+$')
+            | selectattr('currentCSVDesc.annotations', 'defined')
+            | list }}"
+  when: mce_channel | length == 0
+
+- name: "[mce/sub] Select highest compatible mce_channel"
   ansible.builtin.set_fact:
     mce_channel: >-
       {{
-        mce_channel_map[
-          _ocp_clusterversion.resources[0].status.desired.version
-          | regex_replace('^(\d+\.\d+)\..*$', '\1')
-        ] | default('stable-2.8')
+        'stable-2.' ~ (
+          _mce_channel_candidates
+          | selectattr('max_ocp', '>=',
+              _ocp_clusterversion.resources[0].status.desired.version
+              | regex_replace('^(\d+\.\d+)\..*$', '\1'))
+          | map(attribute='minor') | list | max | string
+        )
       }}
   when: mce_channel | length == 0
 

@@ -13,3 +13,7 @@
 - name: Create MultiClusterEngine instance
   ansible.builtin.import_tasks: instance.yml
   tags: mce_instance
+
+- name: Create KubeVirt credentials secret for HCP provisioning
+  ansible.builtin.import_tasks: credentials.yml
+  tags: mce_credentials

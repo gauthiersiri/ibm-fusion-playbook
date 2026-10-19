@@ -26,6 +26,19 @@ mce_channel: ""
 # MultiClusterEngine CR name — must be "multiclusterengine" (only one allowed per cluster)
 mce_instance_name: "multiclusterengine"
 
+# KubeVirt credentials secret for HCP cluster provisioning via MCE.
+# ref: Secret observed from MCE UI — "Create credential > OpenShift Virtualization"
+#
+# hcp_ssh_public_key: SSH public key injected into hosted cluster nodes.
+#   Format: "ssh-ed25519 AAAA... user@host"
+#   Leave empty ("") to skip credential creation entirely.
+#
+# The pullSecret is extracted automatically from openshift-config/pull-secret.
+# The secret is created in the namespace defined by hcp_credentials_namespace.
+hcp_credentials_name: "hcp-pull-secret"
+hcp_credentials_namespace: "default"
+hcp_ssh_public_key: ""   # set in host_vars — e.g. "ssh-ed25519 AAAA... user@host"
+
 # Timing — MCE can take 10+ minutes to reach Available
 mce_wait_seconds: 900
 mce_poll_interval_seconds: 30

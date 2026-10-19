@@ -64,9 +64,11 @@
   until: >-
     _mcp_status.resources | length > 0
     and (_mcp_status.resources
-         | selectattr('status.degradedMachineCount', 'equalto', 0)
-         | selectattr('status.updatingMachineCount', 'equalto', 0)
-         | list | length) == (_mcp_status.resources | length)
+         | map(attribute='status.degradedMachineCount', default=0)
+         | select('>', 0) | list | length) == 0
+    and (_mcp_status.resources
+         | map(attribute='status.updatingMachineCount', default=0)
+         | select('>', 0) | list | length) == 0
   retries: 40
   delay: 30
   when: _minio_idms_check.resources | length == 0

@@ -1,6 +1,10 @@
 ---
 # roles/fusion_backup/tasks/main.yml
 
+- name: Apply MinIO ImageDigestMirrorSet (quay.io/minio removed — IBM advisory 7289585)
+  ansible.builtin.import_tasks: minio_mirror.yml
+  tags: backup_minio_mirror
+
 - name: Create FusionServiceInstance for Backup & Restore
   ansible.builtin.import_tasks: fsi.yml
   tags: backup_fsi

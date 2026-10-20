@@ -1,0 +1,12 @@
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: "{{ metallb_pool_name }}"
+  namespace: "{{ metallb_namespace }}"
+spec:
+  addresses:
+{% for addr in metallb_pool_addresses %}
+    - "{{ addr }}"
+{% endfor %}
+  autoAssign: {{ metallb_pool_auto_assign | bool | lower }}
+  avoidBuggyIPs: {{ metallb_pool_avoid_buggy_ips | bool | lower }}

@@ -1,0 +1,19 @@
+---
+# roles/multicluster_engine/tasks/main.yml
+# ref: Red Hat docs — Installing multicluster engine for Kubernetes Operator via CLI
+
+- name: Subscribe to MultiClusterEngine (Namespace, OperatorGroup, Subscription)
+  ansible.builtin.import_tasks: subscription.yml
+  tags: mce_subscription
+
+- name: Wait for MultiClusterEngine Operator to be ready
+  ansible.builtin.import_tasks: wait_operator.yml
+  tags: mce_subscription
+
+- name: Create MultiClusterEngine instance
+  ansible.builtin.import_tasks: instance.yml
+  tags: mce_instance
+
+- name: Create KubeVirt credentials secret for HCP provisioning
+  ansible.builtin.import_tasks: credentials.yml
+  tags: mce_credentials

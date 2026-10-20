@@ -1,0 +1,66 @@
+---
+# roles/fusion_data_foundation/tasks/provider_lb_service.yml
+#
+# Create the LoadBalancer Service that exposes the OCS provider gRPC API
+# (port 50051) to remote consumer clusters via MetalLB.
+#
+# Only runs when odf_deployment_mode == "provider".
+#
+# ref: IBM Fusion Software 2.14, Configuring FDF in provider mode, step 10:
+#   "Create a load balancer service in the openshift-storage namespace"
+# Prerequisites:
+#   - MetalLB operator installed and configured with an IPAddressPool.
+#   - odf_provider_metallb_pool must match the IPAddressPool name on the cluster.
+#   - StorageCluster must be Ready (wait_storage_cluster.yml completed).
+
+- name: "[odf/provider_lb] Check if LoadBalancer Service already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: v1
+    kind: Service
+    name: "{{ odf_provider_lb_service_name }}"
+    namespace: "{{ odf_namespace }}"
+  register: _lb_svc_check
+
+- name: "[odf/provider_lb] LoadBalancer Service already exists — skipping"
+  ansible.builtin.debug:
+    msg: "Service '{{ odf_provider_lb_service_name }}' already exists. Skipping."
+  when: _lb_svc_check.resources | length > 0
+
+- name: "[odf/provider_lb] Create provider LoadBalancer Service"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'provider_lb_service.j2') | from_yaml }}"
+  when: _lb_svc_check.resources | length == 0
+
+- name: "[odf/provider_lb] Wait for LoadBalancer IP to be assigned"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: v1
+    kind: Service
+    name: "{{ odf_provider_lb_service_name }}"
+    namespace: "{{ odf_namespace }}"
+  register: _lb_svc_status
+  until: >-
+    _lb_svc_status.resources | length > 0
+    and (_lb_svc_status.resources[0].status.loadBalancer.ingress | default([])) | length > 0
+  retries: "{{ (odf_wait_seconds / odf_poll_interval_seconds) | int }}"
+  delay: "{{ odf_poll_interval_seconds }}"
+
+- name: "[odf/provider_lb] Provider LoadBalancer Service ready"
+  ansible.builtin.debug:
+    msg:
+      - "Service    : {{ odf_provider_lb_service_name }}"
+      - "Namespace  : {{ odf_namespace }}"
+      - "MetalLB pool : {{ odf_provider_metallb_pool }}"
+      - "Endpoint   : {{ _lb_svc_status.resources[0].status.loadBalancer.ingress[0].ip | default('pending') }}:50051"

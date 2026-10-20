@@ -3,14 +3,42 @@ kind: StorageCluster
 metadata:
   name: "{{ odf_storage_cluster_name }}"
   namespace: "{{ odf_namespace }}"
+  annotations:
+    cluster.ocs.openshift.io/local-devices: "true"
 spec:
   monDataDirHostPath: /var/lib/rook
   resourceProfile: "{{ odf_resource_profile }}"
+  arbiter: {}
+  externalStorage: {}
+  encryption:
+    kms: {}
+  managedResources:
+    cephObjectStores:
+      # RGW hostNetwork kept false regardless of top-level hostNetwork setting.
+      # Observed on ODF 4.20 provider CR and ODF 4.21 hostNetwork CR.
+      hostNetwork: false
+{% if odf_deployment_mode == 'provider' %}
+  # -----------------------------------------------------------------------
+  # Provider mode only
+  # ref: IBM Fusion Software 2.14 — Configuring FDF in provider mode
+  # doc step 7: "Select Host as the Network option."
+  # Observed on ODF 4.21 ITZ fresh deploy (CR UID 62c5eb10).
+  #
+  # NOTE: allowRemoteStorageConsumers and providerAPIServerServiceType are
+  # NOT set here — on ODF 4.21 the operator handles provider API server
+  # routing automatically when hostNetwork:true. The storageProviderEndpoint
+  # is exposed via NodePort 31659 by default, or via the dedicated
+  # LoadBalancer Service created in provider_lb_service.yml (port 50051).
+  # -----------------------------------------------------------------------
+  hostNetwork: true
+{% endif %}
   storageDeviceSets:
     - name: "{{ odf_device_set_name }}"
+      # count:1 + replica:3 = 3 OSDs — matches reference ITZ CR (ODF 4.21.12).
+      # replica:3 satisfies osd_pool_default_size:3 for pool creation.
       count: 1
-      portable: false
       replica: 3
+      portable: false
       dataPVCTemplate:
         spec:
           accessModes:

@@ -1,0 +1,29 @@
+---
+# roles/multicluster_engine/tasks/wait_operator.yml
+# Wait for the multicluster-engine CSV to reach the Succeeded phase.
+
+- name: "[mce/wait] Wait for MultiClusterEngine CSV to be Succeeded"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ mce_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/multicluster-engine.{{ mce_namespace }}"
+  register: _mce_csv
+  until: >-
+    _mce_csv.resources | length > 0
+    and (_mce_csv.resources | selectattr('status.phase', 'defined')
+         | selectattr('status.phase', 'equalto', 'Succeeded') | list | length) > 0
+  retries: "{{ (mce_wait_seconds / mce_poll_interval_seconds) | int }}"
+  delay: "{{ mce_poll_interval_seconds }}"
+
+- name: "[mce/wait] MultiClusterEngine operator ready"
+  ansible.builtin.debug:
+    msg:
+      - "CSV     : {{ _mce_csv.resources[0].metadata.name }}"
+      - "Phase   : {{ _mce_csv.resources[0].status.phase }}"
+      - "Version : {{ _mce_csv.resources[0].spec.version | default('n/a') }}"

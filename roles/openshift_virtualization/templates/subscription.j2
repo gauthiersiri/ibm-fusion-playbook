@@ -1,0 +1,10 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: "{{ cnv_subscription_name }}"
+  namespace: "{{ cnv_namespace }}"
+spec:
+  source: "{{ cnv_source }}"
+  sourceNamespace: "{{ cnv_source_namespace }}"
+  name: kubevirt-hyperconverged
+  channel: "{{ cnv_channel }}"

@@ -1,0 +1,19 @@
+---
+# roles/metallb/tasks/main.yml
+# ref: IBM Fusion Software 2.14, Configuring FDF in provider mode, step 10a-10c
+
+- name: Install MetalLB Operator (Namespace, OperatorGroup, Subscription)
+  ansible.builtin.import_tasks: subscription.yml
+  tags: metallb_subscription
+
+- name: Wait for MetalLB Operator to be ready
+  ansible.builtin.import_tasks: wait_operator.yml
+  tags: metallb_subscription
+
+- name: Create MetalLB instance
+  ansible.builtin.import_tasks: instance.yml
+  tags: metallb_instance
+
+- name: Configure IPAddressPool and L2Advertisement
+  ansible.builtin.import_tasks: address_pool.yml
+  tags: metallb_pool

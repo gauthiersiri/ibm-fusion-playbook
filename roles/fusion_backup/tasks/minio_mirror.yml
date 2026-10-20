@@ -1,0 +1,79 @@
+---
+# roles/fusion_backup/tasks/minio_mirror.yml
+# Apply an ImageDigestMirrorSet that redirects MinIO image pulls from the
+# removed Quay registry to the IBM Container Registry.
+#
+# ref: IBM Support advisory — MinIO Image Removal from Quay Registry
+# https://www.ibm.com/support/pages/node/7289585
+#
+# Problem: quay.io/minio/minio image was removed — guardian-minio pods fail
+# to start on any node that does not already have the image cached locally.
+# Fix: IDMS redirects quay.io/minio → icr.io/fusion-open/minio.
+# This triggers an MCP rollout (config propagation) but does NOT reboot nodes.
+
+- name: "[backup/minio] Check if MinIO IDMS already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: config.openshift.io/v1
+    kind: ImageDigestMirrorSet
+    name: fbr-minio-idms
+  register: _minio_idms_check
+
+- name: "[backup/minio] MinIO IDMS already exists — skipping"
+  ansible.builtin.debug:
+    msg: "ImageDigestMirrorSet 'fbr-minio-idms' already present. Skipping."
+  when: _minio_idms_check.resources | length > 0
+
+- name: "[backup/minio] Apply MinIO ImageDigestMirrorSet"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition:
+      apiVersion: config.openshift.io/v1
+      kind: ImageDigestMirrorSet
+      metadata:
+        name: fbr-minio-idms
+      spec:
+        imageDigestMirrors:
+          - source: quay.io/minio
+            mirrors:
+              - icr.io/fusion-open/minio
+  when: _minio_idms_check.resources | length == 0
+
+- name: "[backup/minio] Wait for MCP to start propagating IDMS"
+  ansible.builtin.pause:
+    seconds: 30
+    prompt: "Waiting 30s for MachineConfigPool to pick up the IDMS change..."
+  when: _minio_idms_check.resources | length == 0
+
+- name: "[backup/minio] Wait for all MCPs to be updated (no reboot)"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: machineconfiguration.openshift.io/v1
+    kind: MachineConfigPool
+  register: _mcp_status
+  until: >-
+    _mcp_status.resources | length > 0
+    and (_mcp_status.resources
+         | map(attribute='status.degradedMachineCount', default=0)
+         | select('>', 0) | list | length) == 0
+    and (_mcp_status.resources
+         | map(attribute='status.updatingMachineCount', default=0)
+         | select('>', 0) | list | length) == 0
+  retries: 40
+  delay: 30
+  when: _minio_idms_check.resources | length == 0
+
+- name: "[backup/minio] MinIO mirror configured"
+  ansible.builtin.debug:
+    msg: "ImageDigestMirrorSet fbr-minio-idms applied — quay.io/minio → icr.io/fusion-open/minio"
+  when: _minio_idms_check.resources | length == 0

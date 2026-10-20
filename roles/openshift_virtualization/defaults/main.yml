@@ -1,0 +1,34 @@
+---
+# roles/openshift_virtualization/defaults/main.yml
+
+# Namespace — mandatory, must be openshift-cnv
+# ref: OCP docs: "Attempting to install in a namespace other than openshift-cnv causes the installation to fail."
+cnv_namespace: "openshift-cnv"
+
+# OLM Subscription settings
+# ref: OCP 4.21 docs — Installing OpenShift Virtualization via CLI
+cnv_subscription_name: "hco-operatorhub"
+cnv_channel: "stable"
+cnv_source: "redhat-operators"
+cnv_source_namespace: "openshift-marketplace"
+
+# HyperConverged CR name — fixed, must be kubevirt-hyperconverged
+cnv_hyperconverged_name: "kubevirt-hyperconverged"
+
+# vmStateStorageClass — storage class used for VM state (live migration, etc.)
+# ref: production CR: ocs-storagecluster-cephfs
+cnv_vm_state_storage_class: "ocs-storagecluster-cephfs"
+
+# Live migration settings
+# ref: production CR
+cnv_live_migration_parallel_per_cluster: 5
+cnv_live_migration_parallel_outbound_per_node: 2
+cnv_live_migration_completion_timeout_per_gib: 150
+cnv_live_migration_progress_timeout: 150
+
+# Memory overcommit percentage (100 = no overcommit)
+cnv_memory_overcommit_percentage: 100
+
+# Timing
+cnv_wait_seconds: 600
+cnv_poll_interval_seconds: 20

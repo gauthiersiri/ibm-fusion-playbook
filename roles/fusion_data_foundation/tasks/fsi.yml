@@ -1,10 +1,16 @@
 ---
 # roles/fusion_data_foundation/tasks/fsi.yml
-# Create the FusionServiceInstance for Data Foundation (Local mode).
+# Create the FusionServiceInstance for Data Foundation.
 #
-# Reference: https://www.ibm.com/docs/en/fusion-software/2.12.x?topic=services-deploying-fusion-using-cli
+# Reference: https://www.ibm.com/docs/en/fusion-software/2.14.0?topic=services-deploying-fusion-using-cli
 # backingStorageType: Local — uses LSO + local block devices.
 # Valid values: Local | Dynamic | External (capitalise first letter).
+#
+# Note: both local and provider deployment modes use backingStorageType: Local.
+# The provider mode distinction is applied at the StorageCluster level (hostNetwork:true),
+# not at the FusionServiceInstance level.
+# ref: IBM Fusion Software 2.14, Configuring FDF in provider mode — "Before you begin:
+#      Fusion Data Foundation service is installed with device type set to Local."
 
 - name: "[odf/fsi] Check if FusionServiceInstance {{ odf_fsi_name }} already exists"
   kubernetes.core.k8s_info:
@@ -38,4 +44,5 @@
     msg:
       - "FusionServiceInstance : {{ odf_fsi_name }}"
       - "backingStorageType    : Local"
+      - "deployment mode       : {{ odf_deployment_mode }}"
       - "ODF namespace         : {{ odf_namespace }}"

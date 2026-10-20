@@ -1,0 +1,20 @@
+---
+# roles/openshift_virtualization/tasks/main.yml
+# ref: OCP docs — Installing OpenShift Virtualization via CLI
+# ref: IBM Fusion HCI 2.14 — Deploying Red Hat OpenShift Virtualization Operator
+
+- name: Subscribe to OpenShift Virtualization (Namespace, OperatorGroup, Subscription)
+  ansible.builtin.import_tasks: subscription.yml
+  tags: cnv_subscription
+
+- name: Wait for OpenShift Virtualization Operator to be ready
+  ansible.builtin.import_tasks: wait_operator.yml
+  tags: cnv_subscription
+
+- name: Patch IngressController — enable wildcard routes (required for virtualized HCP)
+  ansible.builtin.import_tasks: patch_ingress.yml
+  tags: cnv_ingress_patch
+
+- name: Create HyperConverged CR
+  ansible.builtin.import_tasks: hyperconverged.yml
+  tags: cnv_hyperconverged

@@ -48,11 +48,25 @@ odf_disk_max_size: ""
 # FusionServiceInstance name for Data Foundation
 odf_fsi_name: "odfmanager"
 
+# Deployment mode: local | provider
+# - local    : standard internal Ceph cluster (default)
+# - provider : enables allowRemoteStorageConsumers + hostNetwork so that
+#              remote consumer clusters can connect via the provider gRPC API
+#              (ref: IBM Fusion Software 2.14 — Configuring FDF in provider mode)
+odf_deployment_mode: "local"
+
 # StorageCluster settings
 odf_storage_cluster_name: "ocs-storagecluster"
 odf_device_set_name: "ocs-deviceset"
 # Resource profile: lean | balanced | performance
 odf_resource_profile: "balanced"
+
+# Provider mode — LoadBalancer Service for the OCS provider gRPC API (port 50051).
+# Only used when odf_deployment_mode == "provider".
+# Set to the MetalLB IPAddressPool name configured in your cluster.
+# ref: IBM Fusion 2.14 doc step 10 — "Create a load balancer service"
+odf_provider_lb_service_name: "ocs-provider-server-load-balancer"
+odf_provider_metallb_pool: "metallb"   # override with your actual pool name
 
 # Timing
 odf_wait_seconds: 900       # ODF operators install: ~15 min

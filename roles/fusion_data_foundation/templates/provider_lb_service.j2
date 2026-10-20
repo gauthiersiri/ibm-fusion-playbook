@@ -1,0 +1,37 @@
+---
+# roles/fusion_data_foundation/templates/provider_lb_service.j2
+#
+# LoadBalancer Service that exposes the OCS provider gRPC API (port 50051)
+# to remote consumer clusters.
+#
+# Required after StorageCluster reaches Ready phase when odf_deployment_mode == "provider".
+#
+# ref: IBM Fusion Software 2.14, Configuring FDF in provider mode, step 10d:
+#   "Define a load balancer service YAML"
+# ref: Production CR (ODF 4.20, sts-pok-hci02):
+#   storageProviderEndpoint: 172.33.46.65:50051
+#
+# MetalLB annotation:
+#   metallb.universe.tf/ip-allocated-from-pool must match the IPAddressPool
+#   name configured on the cluster (set via odf_provider_metallb_pool).
+#
+# nodePort: 30756 — fixed value from the IBM Fusion 2.14 doc example.
+# selector app: ocsProviderApiServer — fixed label set by the ocs-operator.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ odf_provider_lb_service_name }}"
+  namespace: "{{ odf_namespace }}"
+  annotations:
+    metallb.universe.tf/ip-allocated-from-pool: "{{ odf_provider_metallb_pool }}"
+spec:
+  type: LoadBalancer
+  ports:
+    - name: provider
+      protocol: TCP
+      port: 50051
+      targetPort: ocs-provider
+      nodePort: 30756
+  selector:
+    app: ocsProviderApiServer

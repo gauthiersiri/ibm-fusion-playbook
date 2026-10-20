@@ -1,0 +1,52 @@
+---
+# roles/metallb/tasks/subscription.yml
+# Create the metallb-system Namespace, OperatorGroup, and Subscription.
+# ref: OCP 4.21 docs — Installing the MetalLB Operator via CLI
+
+- name: "[metallb/sub] Create metallb-system Namespace"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'namespace.j2') | from_yaml }}"
+
+- name: "[metallb/sub] Create OperatorGroup"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'operatorgroup.j2') | from_yaml }}"
+
+- name: "[metallb/sub] Check if Subscription already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ metallb_subscription_name }}"
+    namespace: "{{ metallb_namespace }}"
+  register: _metallb_sub_check
+
+- name: "[metallb/sub] Create Subscription"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'subscription.j2') | from_yaml }}"
+  when: _metallb_sub_check.resources | length == 0
+
+- name: "[metallb/sub] Subscription submitted"
+  ansible.builtin.debug:
+    msg:
+      - "Subscription : {{ metallb_subscription_name }}"
+      - "Channel      : {{ metallb_channel }}"
+      - "Source       : {{ metallb_source }}"
+      - "Namespace    : {{ metallb_namespace }}"

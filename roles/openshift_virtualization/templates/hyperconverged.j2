@@ -1,0 +1,53 @@
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: "{{ cnv_hyperconverged_name }}"
+  namespace: "{{ cnv_namespace }}"
+  annotations:
+    deployOVS: "false"
+spec:
+  enableCommonBootImageImport: true
+  virtualMachineOptions:
+    disableFreePageReporting: false
+    disableSerialConsoleLog: false
+  higherWorkloadDensity:
+    memoryOvercommitPercentage: {{ cnv_memory_overcommit_percentage }}
+  liveMigrationConfig:
+    allowAutoConverge: false
+    allowPostCopy: false
+    completionTimeoutPerGiB: {{ cnv_live_migration_completion_timeout_per_gib }}
+    parallelMigrationsPerCluster: {{ cnv_live_migration_parallel_per_cluster }}
+    parallelOutboundMigrationsPerNode: {{ cnv_live_migration_parallel_outbound_per_node }}
+    progressTimeout: {{ cnv_live_migration_progress_timeout }}
+  certConfig:
+    ca:
+      duration: 48h0m0s
+      renewBefore: 24h0m0s
+    server:
+      duration: 24h0m0s
+      renewBefore: 12h0m0s
+  enableApplicationAwareQuota: false
+  applicationAwareConfig:
+    allowApplicationAwareClusterResourceQuota: false
+    vmiCalcConfigName: DedicatedVirtualResources
+  featureGates:
+    enableMultiArchBootImageImport: false
+    downwardMetrics: false
+    disableMDevConfiguration: false
+    declarativeHotplugVolumes: false
+    deployKubeSecondaryDNS: false
+    objectGraph: false
+    alignCPUs: false
+    persistentReservation: false
+    videoConfig: true
+    decentralizedLiveMigration: false
+  workloadUpdateStrategy:
+    batchEvictionInterval: 1m0s
+    batchEvictionSize: 10
+    workloadUpdateMethods:
+      - LiveMigrate
+  deployVmConsoleProxy: false
+  uninstallStrategy: BlockUninstallIfWorkloadsExist
+  resourceRequirements:
+    vmiCPUAllocationRatio: 10
+  vmStateStorageClass: "{{ cnv_vm_state_storage_class }}"

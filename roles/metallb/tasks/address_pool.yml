@@ -1,0 +1,67 @@
+---
+# roles/metallb/tasks/address_pool.yml
+# Create the IPAddressPool and L2Advertisement.
+# ref: production CRs (ITZ cluster):
+#   IPAddressPool: techzone-ipaddresspool  — 10.10.10.200-10.10.10.250
+#   L2Advertisement: l2-adv-techzone
+
+- name: "[metallb/pool] Check if IPAddressPool already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: metallb.io/v1beta1
+    kind: IPAddressPool
+    name: "{{ metallb_pool_name }}"
+    namespace: "{{ metallb_namespace }}"
+  register: _pool_check
+
+- name: "[metallb/pool] IPAddressPool already exists — skipping"
+  ansible.builtin.debug:
+    msg: "IPAddressPool '{{ metallb_pool_name }}' already exists. Skipping."
+  when: _pool_check.resources | length > 0
+
+- name: "[metallb/pool] Create IPAddressPool"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'ipaddresspool.j2') | from_yaml }}"
+  when: _pool_check.resources | length == 0
+
+- name: "[metallb/pool] Check if L2Advertisement already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: metallb.io/v1beta1
+    kind: L2Advertisement
+    name: "{{ metallb_l2adv_name }}"
+    namespace: "{{ metallb_namespace }}"
+  register: _l2adv_check
+
+- name: "[metallb/pool] L2Advertisement already exists — skipping"
+  ansible.builtin.debug:
+    msg: "L2Advertisement '{{ metallb_l2adv_name }}' already exists. Skipping."
+  when: _l2adv_check.resources | length > 0
+
+- name: "[metallb/pool] Create L2Advertisement"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'l2advertisement.j2') | from_yaml }}"
+  when: _l2adv_check.resources | length == 0
+
+- name: "[metallb/pool] Pool and advertisement configured"
+  ansible.builtin.debug:
+    msg:
+      - "IPAddressPool   : {{ metallb_pool_name }}"
+      - "Addresses       : {{ metallb_pool_addresses }}"
+      - "L2Advertisement : {{ metallb_l2adv_name }}"

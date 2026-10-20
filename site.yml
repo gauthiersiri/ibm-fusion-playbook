@@ -57,8 +57,21 @@
     - role: roles/fusion_operator
       tags: fusion_operator
 
+    - role: roles/metallb
+      tags: metallb
+      when: odf_deployment_mode | default('local') == 'provider'
+
+    - role: roles/hcp_lvm_config
+      tags: hcp_lvm_config
+
     - role: roles/fusion_data_foundation
       tags: fusion_data_foundation
+
+    - role: roles/openshift_virtualization
+      tags: openshift_virtualization
+
+    - role: roles/multicluster_engine
+      tags: multicluster_engine
 
     - role: roles/fusion_backup
       tags: fusion_backup

@@ -1,0 +1,29 @@
+---
+# roles/metallb/tasks/wait_operator.yml
+# Wait for the MetalLB operator CSV to reach the Succeeded phase.
+
+- name: "[metallb/wait] Wait for MetalLB CSV to be Succeeded"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ metallb_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/metallb-operator.{{ metallb_namespace }}"
+  register: _metallb_csv
+  until: >-
+    _metallb_csv.resources | length > 0
+    and (_metallb_csv.resources | selectattr('status.phase', 'defined')
+         | selectattr('status.phase', 'equalto', 'Succeeded') | list | length) > 0
+  retries: "{{ (metallb_wait_seconds / metallb_poll_interval_seconds) | int }}"
+  delay: "{{ metallb_poll_interval_seconds }}"
+
+- name: "[metallb/wait] MetalLB operator ready"
+  ansible.builtin.debug:
+    msg:
+      - "CSV     : {{ _metallb_csv.resources[0].metadata.name }}"
+      - "Phase   : {{ _metallb_csv.resources[0].status.phase }}"
+      - "Version : {{ _metallb_csv.resources[0].spec.version | default('n/a') }}"

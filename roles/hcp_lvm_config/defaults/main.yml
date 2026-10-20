@@ -1,0 +1,42 @@
+---
+# roles/hcp_lvm_config/defaults/main.yml
+# ConfigMap lvm-config — consumed by IBM Fusion to create an LVMCluster
+# for hosted control plane etcd pods.
+#
+# ref: https://www.ibm.com/docs/en/fusion-software/2.12.x?topic=plane-prerequisites-hosted-control-clusters
+#
+# IMPORTANT: this ConfigMap must be created BEFORE the Fusion Data Foundation
+# service is installed on the hub cluster.
+#
+# Rules (from IBM docs):
+#   - computeNodes must list at least 3 worker nodes (non-GPU)
+#   - drives: 1 or 2 drive paths per node, identical across all nodes
+#   - nodeType: only "compute" is supported
+#   - skipLVM: set to "true" to skip LVMCluster creation (default: false)
+
+hcp_lvm_namespace: "ibm-spectrum-fusion-ns"
+hcp_lvm_configmap_name: "lvm-config"
+
+# List of worker node hostnames to use for LVM (minimum 3)
+# Override in inventory / group_vars / extra-vars:
+#   hcp_lvm_compute_nodes:
+#     - worker-0.cluster.example.com
+#     - worker-1.cluster.example.com
+#     - worker-2.cluster.example.com
+hcp_lvm_compute_nodes: []
+
+# List of drive paths (1 or 2 per node, same path used on every node)
+# Example NVMe: '/dev/disk/by-path/pci-0000:61:00.0-nvme-1'
+hcp_lvm_drives: []
+
+# nodeType: only "compute" supported
+hcp_lvm_node_type: "compute"
+
+# skipLVM: set to "true" to skip LVMCluster creation
+hcp_lvm_skip: "false"
+
+# StorageClass created by Fusion once LVMCluster is ready
+# Used to validate that LVM was successfully configured
+hcp_lvm_storageclass_name: "lvms-hcp-etcd"
+hcp_lvm_wait_seconds: 300
+hcp_lvm_poll_interval_seconds: 15

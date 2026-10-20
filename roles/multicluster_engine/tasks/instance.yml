@@ -1,0 +1,54 @@
+---
+# roles/multicluster_engine/tasks/instance.yml
+# Create the MultiClusterEngine CR.
+# Only one instance is allowed per cluster (name: multiclusterengine).
+# ref: Red Hat docs: "It can take up to 10 minutes for the MultiClusterEngine
+#      custom resource status to display as Available."
+
+- name: "[mce/instance] Check if MultiClusterEngine CR already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: multicluster.openshift.io/v1
+    kind: MultiClusterEngine
+    name: "{{ mce_instance_name }}"
+  register: _mce_cr_check
+
+- name: "[mce/instance] MultiClusterEngine CR already exists — skipping"
+  ansible.builtin.debug:
+    msg: "MultiClusterEngine '{{ mce_instance_name }}' already exists. Skipping."
+  when: _mce_cr_check.resources | length > 0
+
+- name: "[mce/instance] Create MultiClusterEngine CR"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'multiclusterengine.j2') | from_yaml }}"
+  when: _mce_cr_check.resources | length == 0
+
+- name: "[mce/instance] Wait for MultiClusterEngine to be Available"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: multicluster.openshift.io/v1
+    kind: MultiClusterEngine
+    name: "{{ mce_instance_name }}"
+  register: _mce_status
+  until: >-
+    _mce_status.resources | length > 0
+    and (_mce_status.resources[0].status | default({})).phase | default('') == 'Available'
+  retries: "{{ (mce_wait_seconds / mce_poll_interval_seconds) | int }}"
+  delay: "{{ mce_poll_interval_seconds }}"
+
+- name: "[mce/instance] MultiClusterEngine is Available"
+  ansible.builtin.debug:
+    msg:
+      - "MultiClusterEngine : {{ mce_instance_name }}"
+      - "Phase              : {{ _mce_status.resources[0].status.phase }}"

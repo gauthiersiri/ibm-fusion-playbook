@@ -1,0 +1,55 @@
+---
+# roles/metallb/tasks/instance.yml
+# Create the MetalLB CR that starts the controller + speaker DaemonSet.
+# Only one MetalLB instance is allowed per cluster (name must be "metallb").
+# ref: production CR (ITZ cluster): spec: {}
+
+- name: "[metallb/instance] Check if MetalLB CR already exists"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: metallb.io/v1beta1
+    kind: MetalLB
+    name: "{{ metallb_instance_name }}"
+    namespace: "{{ metallb_namespace }}"
+  register: _metallb_cr_check
+
+- name: "[metallb/instance] MetalLB CR already exists — skipping"
+  ansible.builtin.debug:
+    msg: "MetalLB CR '{{ metallb_instance_name }}' already exists. Skipping."
+  when: _metallb_cr_check.resources | length > 0
+
+- name: "[metallb/instance] Create MetalLB CR"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    state: present
+    definition: "{{ lookup('template', 'metallb.j2') | from_yaml }}"
+  when: _metallb_cr_check.resources | length == 0
+
+- name: "[metallb/instance] Wait for MetalLB controller to be Available"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: apps/v1
+    kind: Deployment
+    name: controller
+    namespace: "{{ metallb_namespace }}"
+  register: _metallb_ctrl
+  until: >-
+    _metallb_ctrl.resources | length > 0
+    and (_metallb_ctrl.resources[0].status.availableReplicas | default(0)) >= 1
+  retries: "{{ (metallb_wait_seconds / metallb_poll_interval_seconds) | int }}"
+  delay: "{{ metallb_poll_interval_seconds }}"
+
+- name: "[metallb/instance] MetalLB controller ready"
+  ansible.builtin.debug:
+    msg:
+      - "MetalLB controller : Available"
+      - "Replicas ready     : {{ _metallb_ctrl.resources[0].status.availableReplicas }}"

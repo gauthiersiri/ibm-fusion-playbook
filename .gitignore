@@ -3,7 +3,7 @@
 secrets.yml
 
 # host_vars contains real cluster credentials — ignore everything except the template
-inventory/host_vars/
+inventory/host_vars/*
 !inventory/host_vars/ocp_cluster.yml.example
 
 # Ansible retry files

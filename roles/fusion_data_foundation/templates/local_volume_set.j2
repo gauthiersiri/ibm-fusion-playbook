@@ -1,24 +1,24 @@
 apiVersion: local.storage.openshift.io/v1alpha1
 kind: LocalVolumeSet
 metadata:
-  name: "{{ odf_lvs_name }}"
+  name: "{{ fdf_lvs_name }}"
   namespace: "{{ lso_namespace }}"
 spec:
   nodeSelector:
     nodeSelectorTerms:
       - matchExpressions:
-          - key: "{{ odf_node_label_key }}"
+          - key: "{{ fdf_node_label_key }}"
             operator: Exists
-  storageClassName: "{{ odf_storage_class }}"
+  storageClassName: "{{ fdf_storage_class }}"
   volumeMode: Block
   deviceInclusionSpec:
     deviceTypes:
       - disk
     deviceMechanicalProperties:
       - NonRotational
-{% if odf_disk_min_size | length > 0 %}
-    minSize: "{{ odf_disk_min_size }}"
+{% if fdf_disk_min_size | length > 0 %}
+    minSize: "{{ fdf_disk_min_size }}"
 {% endif %}
-{% if odf_disk_max_size | length > 0 %}
-    maxSize: "{{ odf_disk_max_size }}"
+{% if fdf_disk_max_size | length > 0 %}
+    maxSize: "{{ fdf_disk_max_size }}"
 {% endif %}

@@ -2,12 +2,8 @@
 # roles/fusion_data_foundation/tasks/wait_storage_cluster.yml
 # Poll StorageCluster until phase is "Ready".
 # Ceph bootstrap (MON, MGR, OSD, MDS, RGW, NooBaa) typically takes 10-20 min.
-#
-# Note: we check the `Available` condition (status=True) rather than
-# `status.phase == "Ready"` because the conditions array is more reliably
-# populated across ODF versions.
 
-- name: "[odf/sc_wait] Wait for StorageCluster to reach Ready phase"
+- name: "[fdf/sc_wait] Wait for StorageCluster to reach Ready phase"
   kubernetes.core.k8s_info:
     host: "{{ _k8s_auth.host }}"
     api_key: "{{ _k8s_auth.api_key | default(omit) }}"
@@ -15,19 +11,19 @@
     validate_certs: "{{ _k8s_auth.validate_certs }}"
     api_version: ocs.openshift.io/v1
     kind: StorageCluster
-    name: "{{ odf_storage_cluster_name }}"
-    namespace: "{{ odf_namespace }}"
+    name: "{{ fdf_storage_cluster_name }}"
+    namespace: "{{ fdf_namespace }}"
   register: _sc_status
   until: >-
     _sc_status.resources | length > 0
     and (_sc_status.resources[0].status | default({})).phase | default('') == 'Ready'
-  retries: "{{ (odf_sc_wait_seconds | int / odf_poll_interval_seconds | int) | int }}"
-  delay: "{{ odf_poll_interval_seconds | int }}"
+  retries: "{{ (fdf_sc_wait_seconds | int / fdf_poll_interval_seconds | int) | int }}"
+  delay: "{{ fdf_poll_interval_seconds | int }}"
 
-- name: "[odf/sc_wait] StorageCluster is Ready"
+- name: "[fdf/sc_wait] StorageCluster is Ready"
   ansible.builtin.debug:
     msg:
-      - "=== ODF StorageCluster ==="
-      - "Name    : {{ odf_storage_cluster_name }}"
+      - "=== FDF StorageCluster ==="
+      - "Name    : {{ fdf_storage_cluster_name }}"
       - "Phase   : {{ _sc_status.resources[0].status.phase }}"
       - "Version : {{ _sc_status.resources[0].status.version | default('n/a') }}"

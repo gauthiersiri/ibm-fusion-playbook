@@ -1,46 +1,46 @@
 ---
 # roles/fusion_data_foundation/tasks/main.yml
 #
-# odf_deployment_mode: local (default) | provider
+# fdf_deployment_mode: local (default) | provider
 #   local    — standard internal Ceph cluster
 #   provider — adds hostNetwork:true to StorageCluster + creates a MetalLB
 #              LoadBalancer Service so remote consumer clusters can reach
 #              the OCS provider gRPC API on port 50051.
 #              ref: IBM Fusion Software 2.14, Configuring FDF in provider mode
 
-- name: Resolve ODF storage nodes (explicit list or auto-detect)
+- name: Resolve FDF storage nodes (explicit list or auto-detect)
   ansible.builtin.import_tasks: discover_nodes.yml
   tags: fusion_data_foundation
 
-- name: Label ODF storage nodes
+- name: Label FDF storage nodes
   ansible.builtin.import_tasks: label_nodes.yml
-  tags: odf_label
+  tags: fdf_label
 
 - name: Create FusionServiceInstance for Data Foundation
   ansible.builtin.import_tasks: fsi.yml
-  tags: odf_fsi
+  tags: fdf_fsi
 
 - name: Wait for Local Storage Operator to be ready
   ansible.builtin.import_tasks: wait_lso.yml
-  tags: odf_lso
+  tags: fdf_lso
 
 - name: Create LocalVolumeDiscovery and LocalVolumeSet
   ansible.builtin.import_tasks: local_volumes.yml
-  tags: odf_lvs
+  tags: fdf_lvs
 
 - name: Wait for Data Foundation to complete
   ansible.builtin.import_tasks: wait_odf.yml
-  tags: odf_wait
+  tags: fdf_wait
 
 - name: Create StorageCluster (Ceph)
   ansible.builtin.import_tasks: storage_cluster.yml
-  tags: odf_storage_cluster
+  tags: fdf_storage_cluster
 
 - name: Wait for StorageCluster to be Ready
   ansible.builtin.import_tasks: wait_storage_cluster.yml
-  tags: odf_storage_cluster
+  tags: fdf_storage_cluster
 
 - name: Create provider LoadBalancer Service (MetalLB)
   ansible.builtin.import_tasks: provider_lb_service.yml
-  when: odf_deployment_mode == 'provider'
-  tags: odf_provider_lb
+  when: fdf_deployment_mode == 'provider'
+  tags: fdf_provider_lb

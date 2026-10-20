@@ -3,7 +3,7 @@
 # Create the StorageSystem + StorageCluster resources to bootstrap Ceph.
 #
 # This is the step that the IBM Fusion UI delegates to the OCP "Storage > Storage Cluster"
-# wizard. It must run AFTER wait_odf.yml confirms all ODF operators are Succeeded.
+# wizard. It must run AFTER wait_odf.yml confirms all FDF operators are Succeeded.
 #
 # References:
 #   https://www.ibm.com/docs/en/fusion-software/2.13.x?topic=foundation-configuring-fusion-data-in-local-mode
@@ -11,11 +11,11 @@
 #
 # Key points:
 #   - portable: false  → required for local (non-portable) block PVs
-#   - storage: "1"     → intentionally minimal; ODF picks the PV regardless of size
+#   - storage: "1"     → intentionally minimal; FDF picks the PV regardless of size
 #   - replica: 3       → one OSD per node (3 infra nodes)
 #   - count: 1         → one device set (scale up later by incrementing count)
 
-- name: "[odf/sc] Check if StorageCluster already exists"
+- name: "[fdf/sc] Check if StorageCluster already exists"
   kubernetes.core.k8s_info:
     host: "{{ _k8s_auth.host }}"
     api_key: "{{ _k8s_auth.api_key | default(omit) }}"
@@ -23,16 +23,16 @@
     validate_certs: "{{ _k8s_auth.validate_certs }}"
     api_version: ocs.openshift.io/v1
     kind: StorageCluster
-    name: "{{ odf_storage_cluster_name }}"
-    namespace: "{{ odf_namespace }}"
+    name: "{{ fdf_storage_cluster_name }}"
+    namespace: "{{ fdf_namespace }}"
   register: _sc_check
 
-- name: "[odf/sc] StorageCluster already exists — skipping"
+- name: "[fdf/sc] StorageCluster already exists — skipping"
   ansible.builtin.debug:
-    msg: "StorageCluster '{{ odf_storage_cluster_name }}' already exists. Skipping."
+    msg: "StorageCluster '{{ fdf_storage_cluster_name }}' already exists. Skipping."
   when: _sc_check.resources | length > 0
 
-- name: "[odf/sc] Create StorageCluster"
+- name: "[fdf/sc] Create StorageCluster"
   kubernetes.core.k8s:
     host: "{{ _k8s_auth.host }}"
     api_key: "{{ _k8s_auth.api_key | default(omit) }}"
@@ -42,10 +42,10 @@
     definition: "{{ lookup('template', 'storage_cluster.j2') | from_yaml }}"
   when: _sc_check.resources | length == 0
 
-- name: "[odf/sc] StorageCluster submitted"
+- name: "[fdf/sc] StorageCluster submitted"
   ansible.builtin.debug:
     msg:
-      - "StorageCluster : {{ odf_storage_cluster_name }}"
-      - "StorageClass   : {{ odf_storage_class }}"
-      - "DeviceSet      : {{ odf_device_set_name }}"
+      - "StorageCluster : {{ fdf_storage_cluster_name }}"
+      - "StorageClass   : {{ fdf_storage_class }}"
+      - "DeviceSet      : {{ fdf_device_set_name }}"
       - "Replica        : 3 (one OSD per storage node)"

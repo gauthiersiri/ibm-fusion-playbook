@@ -1,139 +1,96 @@
 # IBM Storage Fusion — Ansible Playbook
 
-Playbook Ansible pour installer et configurer **IBM Storage Fusion** sur un cluster OpenShift.
+Modular and idempotent Ansible playbook to deploy **IBM Storage Fusion**, **Fusion Data Foundation (FDF)**, **MetalLB**, **OpenShift Virtualization**, and **MultiCluster Engine (MCE)** on OpenShift.
 
-## Prérequis
+---
 
-| Outil | Version minimale |
-|---|---|
-| Ansible | 2.14+ |
-| `kubernetes.core` collection | 2.4+ |
-| `oc` CLI | dans le `PATH` |
+## 🚀 Quick Start
 
+### 1. Requirements & Setup
 ```bash
-# Activer le venv
 source ~/ansible-venv/bin/activate
-
-# Installer les collections
 ansible-galaxy collection install -r requirements.yml
 ```
 
-## Configuration
-
-Toutes les variables sont dans **`inventory/host_vars/ocp_cluster.yml`** — pas de `-e` sur la ligne de commande.
-
-Copier le fichier d'exemple et remplir les valeurs :
-
+### 2. Configuration
+Copy the sample file and set your cluster credentials:
 ```bash
 cp inventory/host_vars/ocp_cluster.yml.example inventory/host_vars/ocp_cluster.yml
-# puis éditer le fichier
 ```
 
-### Variables obligatoires
+### 3. Run
+```bash
+ansible-playbook site.yml -i inventory/hosts.yml
+```
 
-| Variable | Description |
-|---|---|
-| `ocp_api_url` | API endpoint du cluster (`https://api.<cluster>.<domain>:6443`) |
-| `ocp_username` + `ocp_password` | Authentification par identifiant (option A) |
-| `ocp_kubeconfig` | Chemin vers le kubeconfig (option B) |
-| `ocp_entitlement_key` | Clé IBM depuis [myibm.ibm.com](https://myibm.ibm.com/products-services/containerlibrary) |
-| `fusion_version` | Version Fusion à installer (ex : `2.14.0`, `2.12.4`) |
+---
 
-### Variables optionnelles importantes
+## 🎛️ Component Selection
 
-| Variable | Défaut | Description |
+Enable or disable components in `inventory/host_vars/ocp_cluster.yml` or via CLI extra vars (`-e`):
+
+| Flag | Default | Description |
 |---|---|---|
-| `ocp_validate_certs` | `true` | Mettre `false` pour les clusters avec certificat auto-signé |
-| `odf_storage_nodes` | `[]` | Liste explicite des nœuds ODF (vide = auto-détection) |
-| `odf_node_selector_key` | `node-role.kubernetes.io/worker` | Label pour l'auto-détection des nœuds ODF |
-| `odf_disk_min_size` | `""` | Taille min des disques pour `LocalVolumeSet` (ex : `490Gi`) |
-| `odf_disk_max_size` | `""` | Taille max des disques pour `LocalVolumeSet` (ex : `510Gi`) |
+| `deploy_prerequisites` | `true` | Global pull secret (`cp.icr.io`) + IBM CatalogSource |
+| `deploy_fusion_operator` | `true` | Fusion Operator (`isf-operator`) + License |
+| `deploy_fusion_data_foundation` | `true` | Fusion Data Foundation (Ceph / Local Storage) |
+| `deploy_metallb` | `false` | MetalLB (*auto-enabled in provider mode or with OpenShift Virtualization*) |
+| `deploy_hcp_lvm_config` | `false` | LVM ConfigMap for HCP (*auto-enabled when MCE is enabled*) |
+| `deploy_fusion_backup` | `false` | Fusion Backup & Restore + MinIO mirror |
+| `deploy_openshift_virtualization` | `false` | OpenShift Virtualization (CNV / KubeVirt) |
+| `deploy_multicluster_engine` | `false` | MultiCluster Engine (MCE / Hosted Control Planes) |
 
-Les defaults complets sont dans [`group_vars/openshift_clusters.yml`](group_vars/openshift_clusters.yml).
+---
 
-## Utilisation
+## 🔗 Automated Dependencies
+
+The playbook enforces strict deployment ordering and dependencies:
+1. **MetalLB** is auto-deployed when `fdf_deployment_mode: provider` or `deploy_openshift_virtualization: true`.
+2. **`hcp_lvm_config`** runs **before** Data Foundation whenever `deploy_multicluster_engine: true`.
+3. **Backup & Restore** runs **after** Data Foundation.
+4. **MCE** provisions KubeVirt credentials automatically if virtualization is present.
+
+---
+
+## 💡 Usage Examples
 
 ```bash
-# Run complet (auth + prérequis + opérateur + ODF)
-ansible-playbook site.yml
+# 1. Full deployment (as configured in host_vars)
+ansible-playbook site.yml -i inventory/hosts.yml
 
-# Seulement les prérequis (pull secret, catalog source)
-ansible-playbook site.yml --tags prerequisites
+# 2. Minimal base only (skip Data Foundation, Backup, Virtualization, MCE)
+ansible-playbook site.yml -i inventory/hosts.yml \
+  -e deploy_fusion_data_foundation=false
 
-# Seulement l'opérateur Fusion
-ansible-playbook site.yml --tags fusion_operator
+# 3. FDF in Provider mode (automatically deploys MetalLB)
+ansible-playbook site.yml -i inventory/hosts.yml \
+  -e fdf_deployment_mode=provider
 
-# Seulement Data Foundation (ODF)
-ansible-playbook site.yml --tags fusion_data_foundation
-
-# Dry-run — attention : les étapes "create + wait" échouent en --check
-ansible-playbook site.yml --check
+# 4. Virtualization & MultiCluster Engine stack
+ansible-playbook site.yml -i inventory/hosts.yml \
+  -e deploy_openshift_virtualization=true \
+  -e deploy_multicluster_engine=true
 ```
 
-## Structure du projet
+---
 
-```
+## 📁 Project Structure
+
+```text
 .
-├── ansible.cfg                          # Configuration Ansible
-├── site.yml                             # Playbook principal
-├── requirements.yml                     # Collections requises
-│
+├── site.yml                             # Main playbook orchestrating roles
+├── group_vars/openshift_clusters.yml    # Global defaults
 ├── inventory/
-│   ├── hosts.yml                        # Inventaire (groupe openshift_clusters)
-│   └── host_vars/
-│       └── ocp_cluster.yml              # Variables du cluster (gitignored)
-│
-├── group_vars/
-│   └── openshift_clusters.yml           # Valeurs par défaut
-│
+│   ├── hosts.yml                        # Inventory
+│   └── host_vars/ocp_cluster.yml        # Target cluster variables (gitignored)
 └── roles/
-    ├── auth/                            # Authentification OCP → _k8s_auth
-    ├── prerequisites/                   # Pull secret + CatalogSource
-    ├── fusion_operator/                 # Installation opérateur + licence
-    └── fusion_data_foundation/          # ODF en mode local (LSO + ODF)
+    ├── auth/                            # OpenShift authentication (_k8s_auth)
+    ├── prerequisites/                   # Global pull secret & IBM CatalogSource
+    ├── fusion_operator/                 # Fusion Operator & License
+    ├── metallb/                         # MetalLB (Operator + Pool + L2Adv)
+    ├── hcp_lvm_config/                  # LVM ConfigMap for Hosted Control Planes
+    ├── fusion_data_foundation/          # FDF / Ceph (Local or Provider mode)
+    ├── fusion_backup/                   # Backup & Restore + MinIO mirror
+    ├── openshift_virtualization/        # OpenShift Virtualization (CNV)
+    └── multicluster_engine/             # MultiCluster Engine (MCE)
 ```
-
-## Flux d'exécution
-
-```
-site.yml
-├── [always] role: auth
-│     └─ Détection auto cert/token → produit _k8s_auth
-│
-├── [prerequisites] role: prerequisites
-│     ├─ pull_secret.yml   → merge cp.icr.io dans openshift-config/pull-secret
-│     ├─ catalog_source.yml→ ibm-operator-catalog (check-before-create, wait READY)
-│     └─ verify.yml        → vérification CatalogSource
-│
-├── [fusion_operator] role: fusion_operator
-│     ├─ namespace.yml     → ibm-spectrum-fusion-ns + OperatorGroup
-│     ├─ subscription.yml  → Subscription + approbation InstallPlan (filtre ownerRef)
-│     ├─ wait.yml          → CSV Succeeded + 11 deployments ready
-│     └─ license.yml       → SpectrumFusion CR + attente 5 deployments post-licence
-│
-└── [fusion_data_foundation] role: fusion_data_foundation
-      ├─ discover_nodes.yml → liste explicite ou auto-détection (≥ 3 nœuds)
-      ├─ label_nodes.yml    → cluster.ocs.openshift.io/openshift-storage=""
-      ├─ fsi.yml            → FusionServiceInstance odfmanager (backingStorageType: Local)
-      ├─ wait_lso.yml       → openshift-local-storage namespace + CSV Succeeded
-      ├─ local_volumes.yml  → LocalVolumeDiscovery + LocalVolumeSet + attente PVs
-      └─ wait_odf.yml       → progressPercentage == 100
-```
-
-## Versions supportées
-
-| Branche | Versions |
-|---|---|
-| 2.14.x | `2.14.0` |
-| 2.13.x | `2.13.0` · `2.13.1` · `2.13.2` |
-| 2.12.x | `2.12.0` · `2.12.1` · `2.12.2` · `2.12.3` · `2.12.4` |
-| 2.11.x | `2.11.0` · `2.11.1` · `2.11.2` |
-
-Channel OLM : toujours **`v2.0`** pour toute la génération 2.x.
-
-## Références
-
-- [IBM Fusion 2.14 — Déploiement CLI](https://www.ibm.com/docs/en/fusion-software/2.14.0?topic=fusion-deploying-using-cli)
-- [IBM Fusion — Data Foundation local mode](https://www.ibm.com/docs/en/fusion-software/2.11.0?topic=foundation-configuring-fusion-data-in-local-mode)
-- [IBM Entitlement Key](https://myibm.ibm.com/products-services/containerlibrary)
-- [kubernetes.core collection](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/)

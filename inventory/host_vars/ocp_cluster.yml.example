@@ -1,0 +1,79 @@
+---
+# inventory/host_vars/ocp_cluster.yml.example
+#
+# Copy this file to ocp_cluster.yml and fill in your values.
+# ocp_cluster.yml is gitignored — never commit real credentials.
+#
+#   cp inventory/host_vars/ocp_cluster.yml.example inventory/host_vars/ocp_cluster.yml
+#
+# To encrypt with Ansible Vault:
+#   ansible-vault encrypt inventory/host_vars/ocp_cluster.yml
+
+# ============================================================
+# Cluster endpoint
+# ============================================================
+ocp_api_url: "https://api.<cluster>.<domain>:6443"
+ocp_validate_certs: false
+
+# ============================================================
+# Authentication — choose ONE option and comment out the other
+# ============================================================
+
+# Option A: username / password
+ocp_username: "kubeadmin"
+ocp_password: "<your-password>"
+
+# Option B: kubeconfig file
+# ocp_kubeconfig: "~/.kube/<cluster>.conf"
+
+# ============================================================
+# IBM Entitlement Key
+# Get yours at: https://myibm.ibm.com/products-services/containerlibrary
+# ============================================================
+ocp_entitlement_key: "<your-ibm-entitlement-key>"
+
+# ============================================================
+# Component Selection & Deployment Flags (true / false)
+# ============================================================
+deploy_prerequisites: true
+deploy_fusion_operator: true
+deploy_fusion_data_foundation: true
+deploy_metallb: false                     # Auto-enabled if provider mode or openshift_virtualization
+deploy_hcp_lvm_config: false              # Auto-enabled if deploy_multicluster_engine is true
+deploy_fusion_backup: false               # Deployed after Data Foundation
+deploy_openshift_virtualization: false   # OpenShift Virtualization (CNV / KubeVirt)
+deploy_multicluster_engine: false        # MultiCluster Engine (MCE / HCP)
+
+# ============================================================
+# Fusion Data Foundation (FDF)
+# ============================================================
+fdf_deployment_mode: "local"             # "local" (default) or "provider"
+# fdf_storage_nodes:                     # Explicit list (Option A)
+#   - <node-1>
+#   - <node-2>
+#   - <node-3>
+fdf_node_name_pattern: "infra"           # Match nodes by name pattern (Option B)
+fdf_disk_min_size: "490Gi"
+fdf_disk_max_size: "510Gi"
+
+# ============================================================
+# MetalLB (Required for provider mode & OpenShift Virtualization)
+# ============================================================
+metallb_pool_name: "metallb-pool"
+metallb_pool_addresses:
+  - "10.10.10.200-10.10.10.250"
+
+# ============================================================
+# HCP LVM (ConfigMap lvm-config for Hosted Control Planes)
+# ============================================================
+# hcp_lvm_compute_nodes:
+#   - <node-1>
+#   - <node-2>
+#   - <node-3>
+# hcp_lvm_drives:
+#   - '/dev/disk/by-path/pci-0000:08:00.0'
+
+# ============================================================
+# MultiCluster Engine (MCE / HCP)
+# ============================================================
+# hcp_ssh_public_key: "ssh-ed25519 AAAA... user@host"

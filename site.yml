@@ -53,25 +53,37 @@
 
     - role: roles/prerequisites
       tags: prerequisites
+      when: deploy_prerequisites | default(true) | bool
 
     - role: roles/fusion_operator
       tags: fusion_operator
+      when: deploy_fusion_operator | default(true) | bool
 
     - role: roles/metallb
       tags: metallb
-      when: odf_deployment_mode | default('local') == 'provider'
+      when: >-
+        (deploy_metallb | default(false) | bool) or
+        (deploy_fusion_data_foundation | default(true) | bool and fdf_deployment_mode | default('local') == 'provider') or
+        (deploy_openshift_virtualization | default(false) | bool)
 
     - role: roles/hcp_lvm_config
       tags: hcp_lvm_config
+      when: >-
+        (deploy_hcp_lvm_config | default(false) | bool) or
+        (deploy_multicluster_engine | default(false) | bool)
 
     - role: roles/fusion_data_foundation
       tags: fusion_data_foundation
-
-    - role: roles/openshift_virtualization
-      tags: openshift_virtualization
-
-    - role: roles/multicluster_engine
-      tags: multicluster_engine
+      when: deploy_fusion_data_foundation | default(true) | bool
 
     - role: roles/fusion_backup
       tags: fusion_backup
+      when: deploy_fusion_backup | default(false) | bool
+
+    - role: roles/openshift_virtualization
+      tags: openshift_virtualization
+      when: deploy_openshift_virtualization | default(false) | bool
+
+    - role: roles/multicluster_engine
+      tags: multicluster_engine
+      when: deploy_multicluster_engine | default(false) | bool

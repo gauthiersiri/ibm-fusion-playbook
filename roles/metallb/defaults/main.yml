@@ -20,14 +20,14 @@ metallb_instance_name: "metallb"
 # Must be routable IPs on the bare-metal network, not assigned to any other device.
 # Format: "x.x.x.x-x.x.x.x" or CIDR "x.x.x.x/yy"
 # ref: production CR (ITZ cluster): 10.10.10.200-10.10.10.250
-metallb_pool_name: "odf-provider-pool"
+metallb_pool_name: "metallb-pool"
 metallb_pool_addresses:
   - "10.10.10.200-10.10.10.250"
 metallb_pool_auto_assign: true
 metallb_pool_avoid_buggy_ips: false
 
 # L2Advertisement name — ties the IPAddressPool to L2 ARP announcements
-metallb_l2adv_name: "odf-provider-l2adv"
+metallb_l2adv_name: "metallb-l2adv"
 
 # Timing
 metallb_wait_seconds: 300

@@ -1,11 +1,11 @@
 apiVersion: local.storage.openshift.io/v1alpha1
 kind: LocalVolumeDiscovery
 metadata:
-  name: "{{ odf_lvd_name }}"
+  name: "{{ fdf_lvd_name }}"
   namespace: "{{ lso_namespace }}"
 spec:
   nodeSelector:
     nodeSelectorTerms:
       - matchExpressions:
-          - key: "{{ odf_node_label_key }}"
+          - key: "{{ fdf_node_label_key }}"
             operator: Exists

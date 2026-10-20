@@ -4,6 +4,18 @@
 # Override in inventory/hosts.yml or pass with -e on CLI
 # ============================================================
 
+# ============================================================
+# Component Selection & Deployment Flags
+# ============================================================
+deploy_prerequisites: true
+deploy_fusion_operator: true
+deploy_fusion_data_foundation: true
+deploy_metallb: false                     # Auto-enabled if provider mode or openshift_virtualization
+deploy_hcp_lvm_config: false              # Auto-enabled if deploy_multicluster_engine is true
+deploy_fusion_backup: false               # Deployed after fusion_data_foundation
+deploy_openshift_virtualization: false   # OpenShift Virtualization (CNV / KubeVirt)
+deploy_multicluster_engine: false        # MultiCluster Engine (MCE / HCP)
+
 # --- Authentication ---
 ocp_api_url: ""          # https://api.<cluster>.<domain>:6443
 ocp_username: ""         # leave empty when using kubeconfig

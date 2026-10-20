@@ -1,74 +1,74 @@
 ---
 # roles/fusion_data_foundation/defaults/main.yml
 
-# Namespace where ODF and Local Storage Operator are installed
-odf_namespace: "openshift-storage"
+# Namespace where FDF and Local Storage Operator are installed
+fdf_namespace: "openshift-storage"
 lso_namespace: "openshift-local-storage"
 
-# OCP node label required by ODF/LSO for storage nodes
-odf_node_label_key: "cluster.ocs.openshift.io/openshift-storage"
-odf_node_label_value: ""
+# OCP node label required by FDF/LSO for storage nodes
+fdf_node_label_key: "cluster.ocs.openshift.io/openshift-storage"
+fdf_node_label_value: ""
 
-# Nodes to label and use for ODF local storage.
+# Nodes to label and use for FDF local storage.
 # Leave empty ([]) to auto-detect nodes by role label (see discover_nodes.yml).
 # Provide an explicit list to skip auto-detection:
-#   odf_storage_nodes:
+#   fdf_storage_nodes:
 #     - worker-1
 #     - worker-2
 #     - worker-3
-odf_storage_nodes: []
+fdf_storage_nodes: []
 
-# Node role label used for auto-detection when odf_storage_nodes is empty.
-# Nodes matching this label are candidates for ODF storage.
-# ALL matched nodes are used — ODF requires a minimum of 3.
+# Node role label used for auto-detection when fdf_storage_nodes is empty.
+# Nodes matching this label are candidates for FDF storage.
+# ALL matched nodes are used — FDF requires a minimum of 3.
 # Common values:
 #   node-role.kubernetes.io/worker  → all worker nodes
 #   node-role.kubernetes.io/infra   → infra nodes (set this for infra-dedicated storage)
-odf_node_selector_key: "node-role.kubernetes.io/worker"
+fdf_node_selector_key: "node-role.kubernetes.io/worker"
 
 # LocalVolumeDiscovery name (LSO creates one per cluster)
-odf_lvd_name: "auto-discover-devices"
+fdf_lvd_name: "auto-discover-devices"
 
 # LocalVolumeSet / StorageClass name
-odf_lvs_name: "localblock"
-odf_storage_class: "localblock"
+fdf_lvs_name: "localblock"
+fdf_storage_class: "localblock"
 
 # Node name pattern — Option B for node discovery.
 # Case-insensitive substring match on node names.
 # Example: "infra" matches itz-avhnox-infra-1, itz-avhnox-infra-2, …
 # Leave empty to fall back to label selector (Option C).
-odf_node_name_pattern: ""
+fdf_node_name_pattern: ""
 
 # Disk selection — override in host_vars to target specific disks.
 # minSize/maxSize filter by size; omit to use all available disks.
 # Example: target 500G disks only → min: 490Gi, max: 510Gi
-odf_disk_min_size: ""
-odf_disk_max_size: ""
+fdf_disk_min_size: ""
+fdf_disk_max_size: ""
 
 # FusionServiceInstance name for Data Foundation
-odf_fsi_name: "odfmanager"
+fdf_fsi_name: "odfmanager"
 
 # Deployment mode: local | provider
 # - local    : standard internal Ceph cluster (default)
 # - provider : enables allowRemoteStorageConsumers + hostNetwork so that
 #              remote consumer clusters can connect via the provider gRPC API
 #              (ref: IBM Fusion Software 2.14 — Configuring FDF in provider mode)
-odf_deployment_mode: "local"
+fdf_deployment_mode: "local"
 
 # StorageCluster settings
-odf_storage_cluster_name: "ocs-storagecluster"
-odf_device_set_name: "ocs-deviceset"
+fdf_storage_cluster_name: "ocs-storagecluster"
+fdf_device_set_name: "ocs-deviceset"
 # Resource profile: lean | balanced | performance
-odf_resource_profile: "balanced"
+fdf_resource_profile: "balanced"
 
 # Provider mode — LoadBalancer Service for the OCS provider gRPC API (port 50051).
-# Only used when odf_deployment_mode == "provider".
+# Only used when fdf_deployment_mode == "provider".
 # Set to the MetalLB IPAddressPool name configured in your cluster.
 # ref: IBM Fusion 2.14 doc step 10 — "Create a load balancer service"
-odf_provider_lb_service_name: "ocs-provider-server-load-balancer"
-odf_provider_metallb_pool: "metallb"   # override with your actual pool name
+fdf_provider_lb_service_name: "ocs-provider-server-load-balancer"
+fdf_provider_metallb_pool: "metallb-pool"   # override with your actual pool name
 
 # Timing
-odf_wait_seconds: 900       # ODF operators install: ~15 min
-odf_sc_wait_seconds: 1800   # StorageCluster (Ceph bootstrap): ~20-30 min
-odf_poll_interval_seconds: 30
+fdf_wait_seconds: 900       # FDF operators install: ~15 min
+fdf_sc_wait_seconds: 1800   # StorageCluster (Ceph bootstrap): ~20-30 min
+fdf_poll_interval_seconds: 30

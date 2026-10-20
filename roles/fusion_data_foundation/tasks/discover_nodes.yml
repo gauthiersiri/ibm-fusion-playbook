@@ -1,44 +1,44 @@
 ---
 # roles/fusion_data_foundation/tasks/discover_nodes.yml
-# Resolve the list of ODF storage nodes.
+# Resolve the list of FDF storage nodes.
 #
 # Three mutually exclusive options (evaluated in priority order):
 #
-#   Option A — odf_storage_nodes (non-empty list)
+#   Option A — fdf_storage_nodes (non-empty list)
 #     Explicit node names. Skips all API queries.
 #     Example:
-#       odf_storage_nodes:
+#       fdf_storage_nodes:
 #         - worker-1
 #         - worker-2
 #         - worker-3
 #
-#   Option B — odf_node_name_pattern (non-empty string)
+#   Option B — fdf_node_name_pattern (non-empty string)
 #     Query all nodes, keep those whose name contains the pattern.
 #     Case-insensitive substring match.
 #     Example:
-#       odf_node_name_pattern: "infra"   → matches itz-avhnox-infra-1, infra-node-2, …
+#       fdf_node_name_pattern: "infra"   → matches itz-avhnox-infra-1, infra-node-2, …
 #
-#   Option C — odf_node_selector_key (default: node-role.kubernetes.io/worker)
+#   Option C — fdf_node_selector_key (default: node-role.kubernetes.io/worker)
 #     Query nodes by label selector. ALL matched nodes are used.
-#     ODF requires a minimum of 3.
+#     FDF requires a minimum of 3.
 
 # ------------------------------------------------------------------ #
 # Option A: explicit list                                             #
 # ------------------------------------------------------------------ #
-- name: "[odf/discover] Use explicit odf_storage_nodes list"
+- name: "[fdf/discover] Use explicit fdf_storage_nodes list"
   ansible.builtin.set_fact:
-    _odf_storage_nodes: "{{ odf_storage_nodes }}"
-  when: odf_storage_nodes | length > 0
+    _fdf_storage_nodes: "{{ fdf_storage_nodes }}"
+  when: fdf_storage_nodes | length > 0
 
 # ------------------------------------------------------------------ #
 # Option B: name pattern filter                                       #
 # ------------------------------------------------------------------ #
-- name: "[odf/discover] Auto-detect by node name pattern (odf_node_name_pattern)"
+- name: "[fdf/discover] Auto-detect by node name pattern (fdf_node_name_pattern)"
   when:
-    - odf_storage_nodes | length == 0
-    - odf_node_name_pattern | length > 0
+    - fdf_storage_nodes | length == 0
+    - fdf_node_name_pattern | length > 0
   block:
-    - name: "[odf/discover] Query all nodes"
+    - name: "[fdf/discover] Query all nodes"
       kubernetes.core.k8s_info:
         host: "{{ _k8s_auth.host }}"
         api_key: "{{ _k8s_auth.api_key | default(omit) }}"
@@ -48,35 +48,35 @@
         kind: Node
       register: _all_nodes
 
-    - name: "[odf/discover] Filter nodes whose name contains '{{ odf_node_name_pattern }}'"
+    - name: "[fdf/discover] Filter nodes whose name contains '{{ fdf_node_name_pattern }}'"
       ansible.builtin.set_fact:
-        _odf_storage_nodes: >-
+        _fdf_storage_nodes: >-
           {{
             _all_nodes.resources
             | map(attribute='metadata.name')
-            | select('search', odf_node_name_pattern, ignorecase=True)
+            | select('search', fdf_node_name_pattern, ignorecase=True)
             | sort
             | list
           }}
 
-    - name: "[odf/discover] Fail if fewer than 3 nodes match pattern '{{ odf_node_name_pattern }}'"
+    - name: "[fdf/discover] Fail if fewer than 3 nodes match pattern '{{ fdf_node_name_pattern }}'"
       ansible.builtin.fail:
         msg: >-
-          Pattern '{{ odf_node_name_pattern }}' matched {{ _odf_storage_nodes | length }} node(s)
-          but ODF requires at least 3.
-          Matched: {{ _odf_storage_nodes }}
+          Pattern '{{ fdf_node_name_pattern }}' matched {{ _fdf_storage_nodes | length }} node(s)
+          but FDF requires at least 3.
+          Matched: {{ _fdf_storage_nodes }}
           All nodes: {{ _all_nodes.resources | map(attribute='metadata.name') | sort | list }}
-      when: _odf_storage_nodes | length < 3
+      when: _fdf_storage_nodes | length < 3
 
 # ------------------------------------------------------------------ #
 # Option C: label selector (default)                                  #
 # ------------------------------------------------------------------ #
-- name: "[odf/discover] Auto-detect by label selector (odf_node_selector_key)"
+- name: "[fdf/discover] Auto-detect by label selector (fdf_node_selector_key)"
   when:
-    - odf_storage_nodes | length == 0
-    - odf_node_name_pattern | length == 0
+    - fdf_storage_nodes | length == 0
+    - fdf_node_name_pattern | length == 0
   block:
-    - name: "[odf/discover] Query nodes with label {{ odf_node_selector_key }}"
+    - name: "[fdf/discover] Query nodes with label {{ fdf_node_selector_key }}"
       kubernetes.core.k8s_info:
         host: "{{ _k8s_auth.host }}"
         api_key: "{{ _k8s_auth.api_key | default(omit) }}"
@@ -85,21 +85,21 @@
         api_version: v1
         kind: Node
         label_selectors:
-          - "{{ odf_node_selector_key }}"
+          - "{{ fdf_node_selector_key }}"
       register: _candidate_nodes
 
-    - name: "[odf/discover] Fail if fewer than 3 candidate nodes found"
+    - name: "[fdf/discover] Fail if fewer than 3 candidate nodes found"
       ansible.builtin.fail:
         msg: >-
           Auto-detection found {{ _candidate_nodes.resources | length }} node(s)
-          matching label '{{ odf_node_selector_key }}' but ODF requires at least 3.
-          Either add more nodes, adjust odf_node_selector_key,
-          set odf_node_name_pattern, or set odf_storage_nodes explicitly.
+          matching label '{{ fdf_node_selector_key }}' but FDF requires at least 3.
+          Either add more nodes, adjust fdf_node_selector_key,
+          set fdf_node_name_pattern, or set fdf_storage_nodes explicitly.
       when: _candidate_nodes.resources | length < 3
 
-    - name: "[odf/discover] Use all {{ _candidate_nodes.resources | length }} matched nodes"
+    - name: "[fdf/discover] Use all {{ _candidate_nodes.resources | length }} matched nodes"
       ansible.builtin.set_fact:
-        _odf_storage_nodes: >-
+        _fdf_storage_nodes: >-
           {{
             _candidate_nodes.resources
             | map(attribute='metadata.name')
@@ -107,6 +107,6 @@
             | list
           }}
 
-- name: "[odf/discover] Storage nodes resolved"
+- name: "[fdf/discover] Storage nodes resolved"
   ansible.builtin.debug:
-    msg: "ODF storage nodes ({{ _odf_storage_nodes | length }}): {{ _odf_storage_nodes }}"
+    msg: "FDF storage nodes ({{ _fdf_storage_nodes | length }}): {{ _fdf_storage_nodes }}"

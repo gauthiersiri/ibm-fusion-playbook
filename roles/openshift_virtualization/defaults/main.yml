@@ -29,6 +29,10 @@ cnv_live_migration_progress_timeout: 150
 # Memory overcommit percentage (100 = no overcommit)
 cnv_memory_overcommit_percentage: 100
 
+# Default StorageClass for OpenShift Virtualization (KubeVirt / CDI DataVolumes)
+cnv_set_default_virt_storage_class: true
+cnv_default_virt_storage_class: "ocs-storagecluster-ceph-rbd-virtualization"
+
 # Timing
 cnv_wait_seconds: 600
 cnv_poll_interval_seconds: 20

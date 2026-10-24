@@ -18,3 +18,7 @@
 - name: Create HyperConverged CR
   ansible.builtin.import_tasks: hyperconverged.yml
   tags: cnv_hyperconverged
+
+- name: Configure default StorageClass for Virtualization
+  ansible.builtin.import_tasks: default_virt_storage_class.yml
+  tags: cnv_default_sc

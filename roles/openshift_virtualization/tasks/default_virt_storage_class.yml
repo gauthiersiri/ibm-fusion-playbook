@@ -1,0 +1,38 @@
+---
+# roles/openshift_virtualization/tasks/default_virt_storage_class.yml
+# Set the default StorageClass for OpenShift Virtualization (KubeVirt / CDI DataVolumes).
+
+- name: "[cnv/default_sc] Wait for virtualization StorageClass '{{ cnv_default_virt_storage_class }}' to exist"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+    name: "{{ cnv_default_virt_storage_class }}"
+  register: _virt_sc_check
+  until: _virt_sc_check.resources | length > 0
+  retries: "{{ (cnv_wait_seconds / cnv_poll_interval_seconds) | int }}"
+  delay: "{{ cnv_poll_interval_seconds }}"
+  when: cnv_set_default_virt_storage_class | bool
+
+- name: "[cnv/default_sc] Set default virtualization StorageClass annotation on '{{ cnv_default_virt_storage_class }}'"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+    name: "{{ cnv_default_virt_storage_class }}"
+    definition:
+      metadata:
+        annotations:
+          storageclass.kubevirt.io/is-default-virt-class: "true"
+  when: cnv_set_default_virt_storage_class | bool
+
+- name: "[cnv/default_sc] Default virtualization StorageClass configured"
+  ansible.builtin.debug:
+    msg: "StorageClass '{{ cnv_default_virt_storage_class }}' is set as the default KubeVirt StorageClass."
+  when: cnv_set_default_virt_storage_class | bool

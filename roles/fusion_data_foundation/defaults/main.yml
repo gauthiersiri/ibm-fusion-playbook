@@ -68,6 +68,10 @@ fdf_resource_profile: "balanced"
 fdf_provider_lb_service_name: "ocs-provider-server-load-balancer"
 fdf_provider_metallb_pool: "metallb-pool"   # override with your actual pool name
 
+# Default StorageClass for standard container workloads (PVCs)
+fdf_set_default_storage_class: true
+fdf_default_storage_class: "ocs-storagecluster-ceph-rbd"
+
 # Timing
 fdf_wait_seconds: 900       # FDF operators install: ~15 min
 fdf_sc_wait_seconds: 1800   # StorageCluster (Ceph bootstrap): ~20-30 min

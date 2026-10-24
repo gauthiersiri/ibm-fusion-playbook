@@ -40,6 +40,10 @@
   ansible.builtin.import_tasks: wait_storage_cluster.yml
   tags: fdf_storage_cluster
 
+- name: Configure default StorageClass for Kubernetes
+  ansible.builtin.import_tasks: default_storage_class.yml
+  tags: fdf_default_sc
+
 - name: Create provider LoadBalancer Service (MetalLB)
   ansible.builtin.import_tasks: provider_lb_service.yml
   when: fdf_deployment_mode == 'provider'

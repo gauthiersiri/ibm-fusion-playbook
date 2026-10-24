@@ -1,0 +1,38 @@
+---
+# roles/fusion_data_foundation/tasks/default_storage_class.yml
+# Set the cluster-wide default StorageClass for standard container workloads.
+
+- name: "[fdf/default_sc] Wait for StorageClass '{{ fdf_default_storage_class }}' to exist"
+  kubernetes.core.k8s_info:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+    name: "{{ fdf_default_storage_class }}"
+  register: _default_sc_check
+  until: _default_sc_check.resources | length > 0
+  retries: "{{ (fdf_wait_seconds / fdf_poll_interval_seconds) | int }}"
+  delay: "{{ fdf_poll_interval_seconds }}"
+  when: fdf_set_default_storage_class | bool
+
+- name: "[fdf/default_sc] Set default StorageClass annotation on '{{ fdf_default_storage_class }}'"
+  kubernetes.core.k8s:
+    host: "{{ _k8s_auth.host }}"
+    api_key: "{{ _k8s_auth.api_key | default(omit) }}"
+    kubeconfig: "{{ _k8s_auth.kubeconfig | default(omit) }}"
+    validate_certs: "{{ _k8s_auth.validate_certs }}"
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+    name: "{{ fdf_default_storage_class }}"
+    definition:
+      metadata:
+        annotations:
+          storageclass.kubernetes.io/is-default-class: "true"
+  when: fdf_set_default_storage_class | bool
+
+- name: "[fdf/default_sc] Default StorageClass configured"
+  ansible.builtin.debug:
+    msg: "StorageClass '{{ fdf_default_storage_class }}' is set as the default Kubernetes StorageClass."
+  when: fdf_set_default_storage_class | bool

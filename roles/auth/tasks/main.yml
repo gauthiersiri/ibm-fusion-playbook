@@ -29,6 +29,10 @@
              '--password=' ~ ocp_password]
             + (['--insecure-skip-tls-verify'] if not ocp_validate_certs else [])
           }}
+      register: _oc_login
+      until: _oc_login is not failed
+      retries: 3
+      delay: 5
       changed_when: false
       no_log: true
 
